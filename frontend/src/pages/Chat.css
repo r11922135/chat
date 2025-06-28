@@ -1,0 +1,377 @@
+/* 聊天室主容器 - 占滿整個視窗 */
+.chat-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 頂部導航 */
+.chat-header {
+  background-color: #4a90e2;
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chat-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logout-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.logout-btn:hover {
+  background-color: #c0392b;
+}
+
+/* 主要聊天區域 */
+.chat-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左側聊天室列表 */
+.rooms-sidebar {
+  width: 300px;
+  background-color: white;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rooms-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rooms-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.new-chat-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-chat-btn:hover {
+  background-color: #357abd;
+}
+
+.rooms-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.room-item {
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.room-item:hover {
+  background-color: #f8f9fa;
+}
+
+.room-item.active {
+  background-color: #e3f2fd;
+  border-right: 3px solid #4a90e2;
+}
+
+.room-name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.room-type {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.last-message {
+  font-size: 0.85rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.no-rooms {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+/* 右側聊天窗口 */
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+}
+
+.chat-window-header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #fafafa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-window-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.invite-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.invite-btn:hover {
+  background-color: #218838;
+}
+
+.invite-btn:active {
+  transform: translateY(1px);
+}
+
+.room-type-badge {
+  background-color: #e0e0e0;
+  color: #666;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+/* 訊息容器 */
+.messages-container {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  max-width: 70%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  word-wrap: break-word;
+}
+
+.own-message {
+  align-self: flex-end;
+  background-color: #4a90e2;
+  color: white;
+}
+
+.other-message {
+  align-self: flex-start;
+  background-color: #f1f1f1;
+  color: #333;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.own-message .message-header {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.other-message .message-header {
+  color: #666;
+}
+
+.message-sender {
+  font-weight: 600;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.message-content {
+  line-height: 1.4;
+}
+
+.no-messages {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  margin-top: 2rem;
+}
+
+/* 訊息輸入表單 */
+.message-form {
+  padding: 1rem 2rem;
+  border-top: 1px solid #e0e0e0;
+  background-color: #fafafa;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.message-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.message-input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.send-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.send-btn:hover {
+  background-color: #357abd;
+}
+
+.send-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 無選擇聊天室時的提示 */
+.no-room-selected {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #666;
+  text-align: center;
+}
+
+.no-room-selected h3 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+/* 錯誤訊息 */
+.error-message {
+  background-color: #fee;
+  color: #c00;
+  padding: 0.75rem;
+  margin: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #fcc;
+  font-size: 0.9rem;
+}
+
+/* 載入狀態 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .chat-main {
+    flex-direction: column;
+  }
+  
+  .rooms-sidebar {
+    width: 100%;
+    height: 40vh;
+  }
+  
+  .chat-window {
+    height: 60vh;
+  }
+  
+  .message {
+    max-width: 85%;
+  }
+  
+  .chat-header {
+    padding: 1rem;
+  }
+  
+  .chat-header h1 {
+    font-size: 1.2rem;
+  }
+  
+  .message-form {
+    padding: 1rem;
+  }
+}
