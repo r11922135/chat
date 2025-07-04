@@ -3,6 +3,7 @@ import { io } from 'socket.io-client'
 class SocketService {
   constructor() {
     this.socket = null
+    this.messageCallbacks = []
   }
 
   // 連接到 Socket.IO 服務器
@@ -30,8 +31,21 @@ class SocketService {
       this.socket.on('error', (error) => {
         console.error('Socket 錯誤:', error)
       })
+
+      // 在連接時就註冊訊息監聽器，只註冊一次
+      this.socket.on('new-message', (data) => {
+        console.log('Socket 收到 new-message 事件:', data)
+        // 通知所有註冊的回調函數
+        this.messageCallbacks.forEach(callback => {
+          try {
+            callback(data)
+          } catch (error) {
+            console.error('訊息回調函數執行錯誤:', error)
+          }
+        })
+      })
       
-      console.log('Socket 實例已創建')
+      console.log('Socket 實例已創建並註冊監聽器')
     }
     return this.socket
   }
@@ -46,22 +60,25 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null
+      this.messageCallbacks = []
     }
   }
 
-  // 加入聊天室
+  // 批量加入聊天室
+  joinRooms(roomIds) {
+    if (this.socket && Array.isArray(roomIds)) {
+      roomIds.forEach(roomId => {
+        this.socket.emit('join-room', roomId)
+        console.log(`加入聊天室: ${roomId}`)
+      })
+    }
+  }
+
+  // 加入單個聊天室
   joinRoom(roomId) {
     if (this.socket) {
       this.socket.emit('join-room', roomId)
       console.log(`加入聊天室: ${roomId}`)
-    }
-  }
-
-  // 離開聊天室
-  leaveRoom(roomId) {
-    if (this.socket) {
-      this.socket.emit('leave-room', roomId)
-      console.log(`離開聊天室: ${roomId}`)
     }
   }
 
@@ -73,34 +90,20 @@ class SocketService {
     }
   }
 
-  // 監聽新訊息
-  onNewMessage(callback) {
-    if (this.socket) {
-      // 先移除現有的監聽器避免重複
-      this.socket.off('new-message')
-      console.log('已移除舊的 new-message 監聽器')
-      
-      // 添加新的監聽器
-      this.socket.on('new-message', (data) => {
-        console.log('Socket 收到 new-message 事件:', data)
-        console.log('Socket 狀態:', {
-          connected: this.socket.connected,
-          id: this.socket.id
-        })
-        callback(data)
-      })
-      
-      console.log('已設定新的 new-message 監聽器')
-    } else {
-      console.error('Socket 未連接，無法設定監聽器')
+  // 註冊訊息回調函數
+  addMessageCallback(callback) {
+    if (typeof callback === 'function') {
+      this.messageCallbacks.push(callback)
+      console.log('已註冊訊息回調函數，總數:', this.messageCallbacks.length)
     }
   }
 
-  // 移除新訊息監聽器
-  offNewMessage() {
-    if (this.socket) {
-      this.socket.off('new-message')
-      console.log('已移除 new-message 監聽器')
+  // 移除訊息回調函數
+  removeMessageCallback(callback) {
+    const index = this.messageCallbacks.indexOf(callback)
+    if (index > -1) {
+      this.messageCallbacks.splice(index, 1)
+      console.log('已移除訊息回調函數，剩餘:', this.messageCallbacks.length)
     }
   }
 

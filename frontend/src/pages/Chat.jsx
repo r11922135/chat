@@ -28,23 +28,59 @@ const Chat = () => {
     // 初始化 Socket 連接
     socketService.connect()
     
-    loadRooms()
+    // 載入聊天室並加入所有 Socket 房間
+    loadRoomsAndJoinAll()
 
     // 清理函數
     return () => {
       socketService.disconnect()
     }
   }, [token])
+
+  // 載入用戶的聊天室並加入所有 Socket 房間
+  const loadRoomsAndJoinAll = async () => {
+    try {
+      setLoading(true)
+      const roomsData = await chatService.getUserRooms()
+      setRooms(roomsData)
+      
+      // 等待 Socket 連接完成後加入所有聊天室
+      const checkSocketAndJoin = () => {
+        if (socketService.getSocket()?.connected) {
+          const roomIds = roomsData.map(room => room.id)
+          socketService.joinRooms(roomIds)
+          console.log('已加入所有聊天室:', roomIds)
+        } else {
+          // 如果還沒連接，稍後重試
+          setTimeout(checkSocketAndJoin, 100)
+        }
+      }
+      
+      checkSocketAndJoin()
+      setError('')
+    } catch (err) {
+      console.error('Load rooms error:', err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem('chatToken')
+        localStorage.removeItem('chatUsername')
+        localStorage.removeItem('chatUserId')
+        window.location.href = '/login'
+      } else {
+        setError('Failed to load chat rooms')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
   
-  // 設定重新連接回調（單獨的 useEffect）
+  // 設定重新連接回調
   useEffect(() => {
     socketService.setOnReconnectCallback(() => {
-      if (selectedRoom) {
-        console.log('Socket 重新連接，重新加入聊天室:', selectedRoom.id)
-        socketService.joinRoom(selectedRoom.id)
-      }
+      console.log('Socket 重新連接，重新加入所有聊天室')
+      const roomIds = rooms.map(room => room.id)
+      socketService.joinRooms(roomIds)
     })
-  }, [selectedRoom])
+  }, [rooms])
 
   // 自動滾動到底部
   const scrollToBottom = () => {
@@ -58,12 +94,8 @@ const Chat = () => {
 
   // 處理新訊息的 useEffect
   useEffect(() => {
-    // 監聽新訊息
     const handleNewMessage = (newMessage) => {
       console.log('收到新訊息:', newMessage)
-      console.log('當前選中聊天室:', selectedRoom)
-      console.log('新訊息 roomId 類型:', typeof newMessage.roomId, 'value:', newMessage.roomId)
-      console.log('當前聊天室 id 類型:', typeof selectedRoom?.id, 'value:', selectedRoom?.id)
       
       // 如果新訊息是當前選中聊天室的，更新訊息列表
       if (selectedRoom && String(newMessage.roomId) === String(selectedRoom.id)) {
@@ -78,97 +110,43 @@ const Chat = () => {
           console.log('添加新訊息到列表')
           return [...prev, newMessage]
         })
-      } else {
-        console.log('訊息不屬於當前聊天室或沒有選中聊天室')
-        console.log('比較結果:', {
-          selectedRoomExists: !!selectedRoom,
-          roomIdMatch: selectedRoom ? String(newMessage.roomId) === String(selectedRoom.id) : false
-        })
       }
       
-      // 可以在這裡添加通知或更新聊天室列表
+      // 這裡可以添加其他功能：
+      // - 更新聊天室列表的最後訊息
+      // - 顯示通知
+      // - 更新未讀訊息計數等
     }
 
-    console.log('設定新訊息監聽器，當前聊天室:', selectedRoom?.id)
-    socketService.onNewMessage(handleNewMessage)
+    // 註冊訊息回調函數
+    socketService.addMessageCallback(handleNewMessage)
 
     // 清理函數
     return () => {
-      console.log('清理新訊息監聽器')
-      socketService.offNewMessage()
+      socketService.removeMessageCallback(handleNewMessage)
     }
-  }, [selectedRoom]) // 依賴 selectedRoom，當聊天室改變時重新設定監聽器
-
-  // 記錄上一個聊天室 ID，用於清理
-  const [previousRoomId, setPreviousRoomId] = useState(null)
-  
-  // 當選中聊天室改變時，加入/離開 Socket 房間
-  useEffect(() => {
-    if (selectedRoom && socketService.getSocket()?.connected) {
-      // 離開之前的聊天室
-      if (previousRoomId && previousRoomId !== selectedRoom.id) {
-        socketService.leaveRoom(previousRoomId)
-        console.log(`離開聊天室: ${previousRoomId}`)
-      }
-      
-      // 加入新的聊天室
-      socketService.joinRoom(selectedRoom.id)
-      console.log(`加入聊天室: ${selectedRoom.id}`)
-      
-      // 更新前一個聊天室 ID
-      setPreviousRoomId(selectedRoom.id)
-      
-      // 驗證是否真的加入了房間
-      setTimeout(() => {
-        console.log('驗證 Socket 房間狀態...')
-        console.log('Socket 連接狀態:', socketService.getSocket()?.connected)
-        console.log('Socket ID:', socketService.getSocket()?.id)
-      }, 1000)
-    }
-  }, [selectedRoom]) // 移除 previousRoomId 依賴，避免無限循環
-
-  // 載入用戶的聊天室
-  const loadRooms = async () => {
-    try {
-      setLoading(true)
-      const roomsData = await chatService.getUserRooms()
-      setRooms(roomsData)
-      setError('')
-    } catch (err) {
-      console.error('Load rooms error:', err)
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        // Token 無效，清除並重導向
-        localStorage.removeItem('chatToken')
-        localStorage.removeItem('chatUsername')
-        window.location.href = '/login'
-      } else {
-        setError('Failed to load chat rooms')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [selectedRoom])
 
   // 選擇聊天室並載入訊息
   const selectRoom = async (room) => {
     try {
-      console.log('選擇聊天室:', room);
+      console.log('選擇聊天室:', room)
       
       // 設定新的聊天室
       setSelectedRoom(room)
       setMessages([])
       setError('')
       
-      console.log('正在載入聊天室訊息..., roomId:', room.id);
+      console.log('正在載入聊天室訊息..., roomId:', room.id)
       const messagesData = await chatService.getRoomMessages(room.id)
-      console.log('收到訊息資料:', messagesData);
+      console.log('收到訊息資料:', messagesData)
       setMessages(messagesData)
-      console.log('訊息設定完成');
+      console.log('訊息設定完成')
       
-      // 移除重複的 joinRoom 調用，讓 useEffect 處理
+      // 不再需要處理 Socket 房間加入/離開，因為已經在所有房間中了
     } catch (err) {
       console.error('Load messages error:', err)
-      console.error('錯誤詳情:', err.response?.data || err.message);
+      console.error('錯誤詳情:', err.response?.data || err.message)
       setError('Failed to load messages')
     }
   }
@@ -258,7 +236,14 @@ const Chat = () => {
       }
 
       const newRoom = await chatService.createRoom(roomData)
-      await loadRooms()
+      
+      // 立即加入新建的聊天室
+      if (socketService.getSocket()?.connected) {
+        socketService.joinRoom(newRoom.id)
+        console.log(`加入新建的聊天室: ${newRoom.id}`)
+      }
+      
+      await loadRoomsAndJoinAll() // 重新載入所有聊天室
       setSelectedRoom(newRoom)
     } catch (err) {
       console.error('Create room error:', err)
@@ -270,7 +255,7 @@ const Chat = () => {
   const handleInviteSuccess = () => {
     setShowInviteModal(false)
     // 重新載入聊天室資訊以更新成員列表
-    loadRooms()
+    loadRoomsAndJoinAll()
   }
 
   if (loading) {
