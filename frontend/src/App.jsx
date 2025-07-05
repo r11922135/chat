@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import Register from './pages/Register'
 import Login from './pages/Login'
@@ -6,35 +6,57 @@ import Chat from './pages/Chat'
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login')
+  const [token, setToken] = useState(localStorage.getItem('chatToken'))
   
+  // 簡單的頁面切換函數
+  const navigateTo = (page) => {
+    setCurrentPage(page)
+  }
+  
+  // 處理登出邏輯
+  const handleLogout = () => {
+    localStorage.removeItem('chatToken')
+    localStorage.removeItem('chatUsername')
+    localStorage.removeItem('chatUserId')
+    setToken(null) // 清除 token state
+    setCurrentPage('login')
+  }
+  
+  // 處理身份驗證過期
+  const handleAuthExpired = () => {
+    localStorage.removeItem('chatToken')
+    localStorage.removeItem('chatUsername')
+    localStorage.removeItem('chatUserId')
+    setToken(null) // 清除 token state
+    setCurrentPage('login')
+  }
+  
+  // 監聽 localStorage 的變化（用於登入成功後更新 token）
   useEffect(() => {
-    // 簡單的路由處理
-    const path = window.location.pathname
-    const token = localStorage.getItem('chatToken')
+    const handleStorageChange = () => {
+      setToken(localStorage.getItem('chatToken'))
+    }
     
-    if (path === '/register') {
-      setCurrentPage('register')
-    } else if (path === '/chat') {
-      if (token) {
-        setCurrentPage('chat')
-      } else {
-        // 沒有 token，重導向到登入
-        window.location.href = '/login'
-      }
-    } else {
-      // 預設為登入頁面
-      setCurrentPage('login')
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
-
+  
+  // 根據登入狀態決定要顯示的頁面
   const renderPage = () => {
+    // 如果已登入，直接顯示聊天室
+    if (token) {
+      return <Chat onLogout={handleLogout} onAuthExpired={handleAuthExpired} />
+    }
+    
+    // 如果未登入，根據 currentPage 決定顯示登入還是註冊
     switch (currentPage) {
       case 'register':
-        return <Register />
-      case 'chat':
-        return <Chat />
+        return <Register navigateTo={navigateTo} />
       default:
-        return <Login />
+        return <Login navigateTo={navigateTo} />
     }
   }
 

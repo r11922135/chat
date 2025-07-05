@@ -1,0 +1,111 @@
+/* 註冊頁面主容器 */
+.register-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #f5f5f5;
+  margin: 0;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+/* 註冊卡片 */
+.register-card {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  min-width: 300px;
+}
+
+/* 標題 */
+.register-title {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+/* 輸入框組 */
+.register-input-group {
+  margin-bottom: 1rem;
+}
+
+.register-input-group:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+/* 標籤 */
+.register-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+/* 輸入框 */
+.register-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+/* 提交按鈕 */
+.register-submit-button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.register-submit-button:hover {
+  background-color: #357abd;
+}
+
+/* 連結容器 */
+.register-link-container {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* 連結按鈕 */
+.register-link-button {
+  background: none;
+  border: none;
+  color: #4a90e2;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.register-link-button:hover {
+  text-decoration: underline;
+}
+
+/* 成功訊息 */
+.register-message-success {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: #d4edda;
+  color: #155724;
+  text-align: center;
+}
+
+/* 錯誤訊息 */
+.register-message-error {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: #f8d7da;
+  color: #721c24;
+  text-align: center;
+}
