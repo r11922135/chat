@@ -42,16 +42,18 @@ io.on('connection', (socket) => {
 
   // 用戶加入聊天室
   socket.on('join-room', (roomId) => {
-    socket.join(roomId);
-    console.log(`用戶 ${socket.id} 加入聊天室 ${roomId}`);
-    console.log(`聊天室 ${roomId} 目前用戶數量:`, io.sockets.adapter.rooms.get(roomId)?.size || 0);
+    const roomName = roomId.toString(); // 確保轉換為字串，與後續邏輯一致
+    socket.join(roomName);
+    console.log(`用戶 ${socket.id} 加入聊天室 ${roomName}`);
+    console.log(`聊天室 ${roomName} 目前用戶數量:`, io.sockets.adapter.rooms.get(roomName)?.size || 0);
   });
 
   // 用戶離開聊天室
   socket.on('leave-room', (roomId) => {
-    socket.leave(roomId);
-    console.log(`用戶 ${socket.id} 離開聊天室 ${roomId}`);
-    console.log(`聊天室 ${roomId} 剩餘用戶數量:`, io.sockets.adapter.rooms.get(roomId)?.size || 0);
+    const roomName = roomId.toString(); // 確保轉換為字串，與後續邏輯一致
+    socket.leave(roomName);
+    console.log(`用戶 ${socket.id} 離開聊天室 ${roomName}`);
+    console.log(`聊天室 ${roomName} 剩餘用戶數量:`, io.sockets.adapter.rooms.get(roomName)?.size || 0);
   });
 
   // 處理即時訊息
@@ -274,29 +276,72 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
   }
 });
 
-// 取得用戶所有聊天室
+// 取得用戶所有聊天室（包含未讀訊息數量）
 app.get('/api/rooms', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // 查詢用戶的聊天室，包含最新訊息
-    const user = await User.findByPk(userId, {
-      include: [{
-        model: Room,
-        include: [{
-          model: Message,
-          limit: 1,
-          order: [['createdAt', 'DESC']],
-          include: [{ model: User, attributes: ['username'] }]
-        }]
-      }]
+    // 查詢用戶的 RoomUser 關係，包含 lastReadAt 資訊
+    const roomUsers = await RoomUser.findAll({
+      where: { userId },
+      include: [
+        {
+          model: Room,
+          include: [
+            {
+              model: Message,
+              limit: 1,
+              order: [['createdAt', 'DESC']],
+              required: false, // LEFT JOIN，即使沒有訊息也要顯示聊天室
+              include: [{ model: User, attributes: ['username'] }]
+            }
+          ]
+        }
+      ]
     });
     
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (roomUsers.length === 0) {
+      return res.json([]);
     }
     
-    res.json(user.Rooms);
+    // 為每個聊天室計算未讀訊息數量
+    const roomsWithUnreadCount = await Promise.all(
+      roomUsers.map(async (roomUser) => {
+        const room = roomUser.Room;
+        const lastReadAt = roomUser.lastReadAt || new Date(0); // 如果沒讀過，從最開始算
+        
+        // 計算未讀訊息數量
+        const unreadCount = await Message.count({
+          where: {
+            roomId: room.id,
+            createdAt: {
+              [sequelize.Sequelize.Op.gt]: lastReadAt
+            }
+          }
+        });
+        
+        // 回傳格式包含未讀數量和最後讀取時間
+        return {
+          id: room.id,
+          name: room.name,
+          isGroup: room.isGroup,
+          createdAt: room.createdAt,
+          updatedAt: room.updatedAt,
+          unreadCount,           // 未讀訊息數量
+          lastReadAt: roomUser.lastReadAt,  // 最後讀取時間
+          Messages: room.Messages  // 保持原有的最新訊息
+        };
+      })
+    );
+    
+    // 按照最新訊息時間排序（有訊息的在前面）
+    roomsWithUnreadCount.sort((a, b) => {
+      const aTime = a.Messages?.[0]?.createdAt || a.createdAt;
+      const bTime = b.Messages?.[0]?.createdAt || b.createdAt;
+      return new Date(bTime) - new Date(aTime);
+    });
+    
+    res.json(roomsWithUnreadCount);
   } catch (err) {
     console.error('Get rooms error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -375,12 +420,19 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
     // 將所有用戶加入聊天室
     await room.setUsers(allUserIds);
     
-    // 返回聊天室資訊，包含成員資訊
-    const roomWithUsers = await Room.findByPk(room.id, {
-      include: [{ model: User, attributes: ['id', 'username'] }]
-    });
+    // 返回聊天室資訊，格式與 GET /api/rooms 一致
+    const roomData = {
+      id: room.id,
+      name: room.name,
+      isGroup: room.isGroup,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+      unreadCount: 0,           // 新建立的聊天室未讀數為 0
+      lastReadAt: null,         // 新建立的聊天室最後讀取時間為 null
+      Messages: []              // 新建立的聊天室沒有訊息
+    };
     
-    res.status(201).json(roomWithUsers);
+    res.status(201).json(roomData);
   } catch (err) {
     console.error('Create room error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -463,6 +515,25 @@ app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
 
   } catch (err) {
     console.error('Invite users error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 標記聊天室為已讀
+app.post('/api/rooms/:roomId/mark-read', authenticateToken, checkRoomAccess, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user.userId;
+    
+    // 更新最後讀取時間為當前時間
+    await RoomUser.update(
+      { lastReadAt: new Date() },
+      { where: { userId, roomId } }
+    );
+    
+    res.json({ message: 'Room marked as read', timestamp: new Date() });
+  } catch (err) {
+    console.error('Mark room as read error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -89,6 +89,16 @@ const inviteUsers = async (roomId, userIds) => {
   return response.data
 }
 
+// 標記聊天室為已讀
+const markRoomAsRead = async (roomId) => {
+  const config = {
+    headers: getAuthHeaders()
+  }
+  
+  const response = await axios.post(`${baseURL}/rooms/${roomId}/mark-read`, {}, config)
+  return response.data
+}
+
 export default {
   getUserRooms,
   getRooms,
@@ -96,5 +106,6 @@ export default {
   getRoomMessages,
   sendMessage,
   searchUsers,
-  inviteUsers
+  inviteUsers,
+  markRoomAsRead
 }

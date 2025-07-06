@@ -10,135 +10,106 @@ import { io } from 'socket.io-client'
  */
 class SocketService {
   constructor() {
-    this.socket = null                // Socket.IO 客戶端實例
-    this.messageCallbacks = []        // 訊息回調函數列表
+    this.socket = null
+    this.messageCallbacks = []
+    this.onConnectedCallback = null // 連接成功後的回調（初始連接和重連都會執行）
   }
 
-  // 【連接建立】連接到 Socket.IO 服務器
   connect() {
-    // 防止重複連接
     if (!this.socket) {
-      console.log('正在建立 Socket 連接...')
-      
-      // 創建 Socket.IO 客戶端實例
       this.socket = io('http://localhost:4000', {
-        autoConnect: true   // 自動連接
+        autoConnect: true
       })
 
-      // 【連接成功事件】
       this.socket.on('connect', () => {
         console.log('Socket 連接成功:', this.socket.id)
-        console.log('Socket 連接狀態:', this.socket.connected)
-        
-        // 【重連處理】如果有重連回調函數，則調用它
-        // 這通常用於重新加入聊天室等恢復操作
-        if (this.onReconnectCallback) {
-          this.onReconnectCallback()
-        }
+        // 每次連接成功都執行初始化邏輯
+        this.handleConnection()
       })
 
-      // 【連接斷開事件】
+      // 監聽重連事件
+      this.socket.on('reconnect', () => {
+        console.log('Socket 連接成功:', this.socket.id)
+        // 重連時也執行初始化邏輯
+        this.handleConnection()
+      })
+
       this.socket.on('disconnect', () => {
         console.log('Socket 連接斷開')
       })
 
-      // 【錯誤處理】
-      this.socket.on('error', (error) => {
-        console.error('Socket 錯誤:', error)
-      })
-
-      // 【核心訊息監聽】註冊新訊息監聽器
-      // 重要：這個監聽器只註冊一次，然後通過回調函數分發給各個組件
       this.socket.on('new-message', (data) => {
-        console.log('Socket 收到 new-message 事件:', data)
-        
-        // 【觀察者模式】通知所有註冊的回調函數
-        // 這允許多個組件同時監聽新訊息，無需重複註冊 Socket 事件
         this.messageCallbacks.forEach(callback => {
           try {
             callback(data)
           } catch (error) {
-            console.error('訊息回調函數執行錯誤:', error)
+            console.error('訊息回調執行錯誤:', error)
           }
         })
       })
-      
-      console.log('Socket 實例已創建並註冊監聽器')
     }
     return this.socket
   }
 
-  // 【重連回調設置】設定重新連接後的回調函數
-  setOnReconnectCallback(callback) {
-    this.onReconnectCallback = callback
-  }
-
-  // 【連接清理】斷開連接並清理資源
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect()          // 斷開 Socket 連接
-      this.socket = null                // 清空 Socket 實例
-      this.messageCallbacks = []        // 清空回調函數列表
+  // 處理連接成功後的邏輯（初始連接和重連都會執行）
+  handleConnection() {
+    if (this.onConnectedCallback) {
+      this.onConnectedCallback()
     }
   }
 
-  // 【批量加入聊天室】向伺服器請求加入多個聊天室
-  // 重要：這個函數只是發送請求，實際的加入操作由伺服器端執行
+  // 設置連接回調（初始連接和重連都會執行）
+  setOnConnectedCallback(callback) {
+    this.onConnectedCallback = callback
+    
+    // 如果已經連接，立即執行
+    if (this.socket?.connected) {
+      callback()
+    }
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect()
+      this.socket = null
+      this.messageCallbacks = []
+      this.onConnectedCallback = null // 清理回調
+    }
+  }
+
   joinRooms(roomIds) {
     if (this.socket && Array.isArray(roomIds)) {
       roomIds.forEach(roomId => {
-        // 發送 'join-room' 事件給伺服器
-        // 伺服器端必須監聽這個事件並調用 socket.join(roomId) 才能真正加入房間
         this.socket.emit('join-room', roomId)
-        console.log(`向伺服器請求加入聊天室: ${roomId}`)
       })
     }
   }
 
-  // 【加入單個聊天室】向伺服器請求加入特定聊天室
-  // 【重要概念】Socket Room 的工作機制：
-  // 1. 客戶端：發送 'join-room' 事件（這裡）
-  // 2. 伺服器端：監聽 'join-room' 事件，執行 socket.join(roomId)
-  // 3. 只有伺服器端的 socket.join() 才能真正將 socket 加入房間
-  // 4. 加入房間後，該 socket 才能接收到房間內的廣播訊息
   joinRoom(roomId) {
     if (this.socket) {
-      // 這只是發送請求，不是真正的加入操作
       this.socket.emit('join-room', roomId)
-      console.log(`向伺服器請求加入聊天室: ${roomId}`)
     }
   }
 
-  // 【訊息發送】發送即時訊息到指定聊天室
-  // 伺服器端會接收這個事件，然後廣播給房間內的所有用戶
   sendMessage(messageData) {
     if (this.socket) {
       this.socket.emit('send-message', messageData)
-      console.log('向伺服器發送即時訊息:', messageData)
     }
   }
 
-  // 【回調管理】註冊訊息回調函數
-  // 【觀察者模式】允許多個組件訂閱新訊息事件
   addMessageCallback(callback) {
     if (typeof callback === 'function') {
       this.messageCallbacks.push(callback)
-      console.log('已註冊訊息回調函數，總數:', this.messageCallbacks.length)
     }
   }
 
-  // 【回調管理】移除訊息回調函數
-  // 重要：防止記憶體洩漏，組件卸載時必須移除回調
   removeMessageCallback(callback) {
     const index = this.messageCallbacks.indexOf(callback)
     if (index > -1) {
       this.messageCallbacks.splice(index, 1)
-      console.log('已移除訊息回調函數，剩餘:', this.messageCallbacks.length)
     }
   }
 
-  // 【實例存取】取得 socket 實例
-  // 用於外部組件檢查連接狀態等
   getSocket() {
     return this.socket
   }
@@ -166,6 +137,12 @@ export default socketService
 
 3. 完整的訊息流程：
    用戶A發送訊息 → 伺服器接收 → 伺服器廣播給房間內所有用戶 → 用戶B接收訊息
+
+【重連機制說明】
+- 當 Socket 斷線時，Socket.IO 會自動嘗試重連
+- 重連成功後會觸發 'reconnect' 事件
+- 我們在重連事件中執行重連回調，重新加入所有房間
+- 這樣確保用戶重連後能繼續接收訊息
 
 【為什麼需要伺服器端管理 Socket Room？】
 - 安全性：防止客戶端任意加入不該加入的房間

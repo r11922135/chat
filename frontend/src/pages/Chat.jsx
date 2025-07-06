@@ -50,77 +50,62 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 【應用初始化】檢查身份驗證並初始化聊天環境
   // 這是整個聊天組件的入口點，負責建立聊天所需的基礎環境
   useEffect(() => {
-    // 【身份驗證檢查】如果沒有 token，用戶需要重新登入
     if (!token) {
-      onAuthExpired() // 通知父組件切換到登入頁面
+      onAuthExpired()
       return
     }
     
-    // 【Socket 連接初始化】
-    // 建立與後端的 WebSocket 連接，這是即時通訊的基礎
-    socketService.connect()
+    // 🎯 正確的執行順序：
+    // 1. 先載入房間資料並設置連接回調
+    // 2. 再建立 Socket 連接
+    const initializeChat = async () => {
+      await loadRoomsAndJoinAll()  // 確保房間載入完成且回調已設置
+      socketService.connect()      // 然後才連接 Socket
+    }
     
-    // 【聊天室環境設置】
-    // 載入用戶的聊天室列表並加入所有 Socket 房間
-    // 這確保用戶能夠接收到所有聊天室的即時訊息
-    loadRoomsAndJoinAll()
+    initializeChat()
     
-    // 【清理函數】當組件卸載時執行
-    // 這在以下情況會被調用：
-    // 1. 用戶登出
-    // 2. 頁面關閉
-    // 3. 組件因為其他原因被卸載
     return () => {
       socketService.disconnect()
     }
-  }, [token]) // 依賴項：當 token 改變時重新執行（例如登入/登出）
+  }, [token])
   
   // 【為什麼要監聽 token 變化？】
   // 當用戶重新登入時，會有新的 token，我們需要重新初始化整個聊天環境
   // 當用戶登出時，token 會被清空，我們需要斷開連接並清理資源
 
-  // 載入用戶的聊天室並加入所有 Socket 房間
-  // 這是應用初始化的核心函數，負責設置整個聊天環境
+  // 【核心功能】載入用戶的聊天室
+  // 這個函數負責：
+  // 1. 從後端 API 獲取用戶的聊天室列表
+  // 2. 更新 rooms 狀態（觸發 useEffect 重新設置 Socket 回調）
+  // 3. 處理載入過程中的錯誤情況
+  // 
+  // 注意：Socket 房間的加入由 rooms 狀態變化觸發的 useEffect 處理，
+  // 而不是在這個函數中直接處理，這樣可以確保使用最新的 rooms 狀態
   const loadRoomsAndJoinAll = async () => {
     try {
       setLoading(true)
       
-      // 從後端 API 獲取用戶的聊天室列表
       const roomsData = await chatService.getUserRooms()
       setRooms(roomsData)
       
-      // 【重要的異步處理】等待 Socket 連接完成後加入所有聊天室
-      // 這裡使用輪詢的方式檢查 Socket 是否已連接
-      // 原因：Socket 連接是異步的，我們需要確保連接完成後才能加入房間
-      const checkSocketAndJoin = () => {
-        if (socketService.getSocket()?.connected) {
-          // Socket 已連接，可以加入聊天室
-          const roomIds = roomsData.map(room => room.id)
-          socketService.joinRooms(roomIds)
-          console.log('已加入所有聊天室:', roomIds)
-        } else {
-          // Socket 還沒連接，100ms 後重試
-          // 這是一個簡單的輪詢機制，確保不會錯過連接時機
-          setTimeout(checkSocketAndJoin, 100)
-        }
-      }
-      checkSocketAndJoin()
+      // 🆕 設置連接回調，連接成功後自動加入聊天室
+      socketService.setOnConnectedCallback(() => {
+        const roomIds = roomsData.map(room => room.id)
+        socketService.joinRooms(roomIds)
+        console.log('已加入聊天室:', roomIds)
+      })
       
       setError('')
     } catch (err) {
       console.error('Load rooms error:', err)
       
-      // 【身份驗證錯誤處理】
-      // 如果是 401 (未授權) 或 403 (禁止訪問)，說明 token 已過期或無效
       if (err.response?.status === 401 || err.response?.status === 403) {
-        // 清理本地存儲的認證信息
         localStorage.removeItem('chatToken')
         localStorage.removeItem('chatUsername')
         localStorage.removeItem('chatUserId')
-        // 通知父組件，需要重新登入
         onAuthExpired()
       } else {
-        // 其他錯誤，顯示錯誤訊息但不登出
         setError('Failed to load chat rooms')
       }
     } finally {
@@ -128,33 +113,34 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     }
   }
   
-  // 設定重新連接回調
-  // 【網路穩定性處理】當 Socket 因為網路問題斷線後重新連接時的處理邏輯
-  // 這個 useEffect 確保重連後用戶能夠繼續正常使用聊天功能
+  // 【關鍵修正】當 rooms 狀態改變時，更新 Socket 連接回調
+  // 這解決了一個重要的閉包問題：
+  // 
+  // 問題描述：
+  // 如果只在 loadRoomsAndJoinAll 中設置一次回調，那麼這個回調函數會「記住」
+  // 它被創建時的 roomsData，即使之後 rooms 狀態改變了，回調仍然使用舊的房間列表。
+  // 
+  // 解決方案：
+  // 每當 rooms 狀態改變時，重新設置 onConnectedCallback，
+  // 確保回調函數始終使用最新的 rooms 狀態。
+  // 
+  // 這個 useEffect 會在以下情況觸發：
+  // 1. 初始載入聊天室後
+  // 2. 創建新聊天室後
+  // 3. 未讀訊息數量更新後
+  // 4. 聊天室列表任何其他變化後
   useEffect(() => {
-    // 設定重連回調函數
-    // 當 socketService 檢測到重新連接時，會自動調用這個函數
-    socketService.setOnReconnectCallback(() => {
-      console.log('Socket 重新連接，重新加入所有聊天室')
-      
-      // 重新加入所有聊天室
-      // 這是必要的，因為 Socket 重連後，之前加入的房間狀態會丟失
-      const roomIds = rooms.map(room => room.id)
-      socketService.joinRooms(roomIds)
-      
-      // 這裡還可以添加其他重連後的恢復邏輯：
-      // - 重新同步未讀訊息
-      // - 更新用戶在線狀態
-      // - 重新載入最新的聊天室資訊
-    })
-  }, [rooms]) // 依賴項：當 rooms 改變時，更新重連回調函數
+    if (rooms && rooms.length > 0) {
+      // 使用最新的 rooms 狀態設置連接回調
+      socketService.setOnConnectedCallback(() => {
+        const roomIds = rooms.map(room => room.id)
+        socketService.joinRooms(roomIds)
+        console.log('已加入聊天室（使用最新的 rooms 狀態）:', roomIds)
+      })
+    }
+  }, [rooms]) // 依賴項：當 rooms 狀態改變時重新設置回調
   
-  // 【為什麼需要 rooms 作為依賴項？】
-  // 因為重連回調函數需要存取最新的 rooms 列表
-  // 如果不將 rooms 放在依賴項中，回調函數會使用舊的 rooms 值（可能是空陣列）
-  // 這會導致重連後無法正確加入聊天室
-
-  // 【自動滾動功能】讓聊天視窗始終顯示最新訊息
+  // 【自動滾动功能】讓聊天視窗始終顯示最新訊息
   const scrollToBottom = () => {
     // 使用 optional chaining (?.) 安全地呼叫 scrollIntoView
     // 如果 messagesEndRef.current 是 null，不會拋出錯誤
@@ -203,39 +189,39 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       console.log('收到新訊息:', newMessage)
       
       // 檢查新訊息是否屬於當前選中的聊天室
-      // 使用 String() 轉換是為了確保類型一致性（ID 可能是數字或字串）
-      // 這個檢查很重要，因為 Socket 會接收到所有聊天室的訊息
-      // 我們只需要更新當前選中聊天室的訊息列表
       if (selectedRoom && String(newMessage.roomId) === String(selectedRoom.id)) {
         console.log('訊息屬於當前聊天室，更新訊息列表')
         
-        // 使用函數式更新來避免競態條件（Race Condition）
-        // prev 參數是當前的 messages 狀態，確保我們基於最新的狀態進行更新
+        // 更新當前聊天室的訊息列表
         setMessages(prev => {
-          // 檢查是否已存在相同的訊息（避免重複添加）
-          // 這可能發生在以下情況：
-          // - 網路延遲導致重複接收
-          // - 多個事件監聽器同時觸發
-          // - 後端重複發送相同訊息
           const exists = prev.find(msg => msg.id === newMessage.id)
           if (exists) {
             console.log('訊息已存在，跳過更新')
-            return prev // 返回原狀態，不觸發重新渲染
+            return prev
           }
           
           console.log('添加新訊息到列表')
-          // 使用展開運算符創建新陣列，這是 React 中更新陣列狀態的最佳實踐
-          // 不能直接修改 prev 陣列，必須返回新的陣列才能觸發重新渲染
           return [...prev, newMessage]
         })
+      } else {
+        // 🆕 如果訊息不屬於當前聊天室，更新聊天室列表中的未讀數和最新訊息
+        console.log('訊息不屬於當前聊天室，更新聊天室列表')
+        setRooms(prev => prev.map(room => {
+          if (room.id === newMessage.roomId) {
+            return {
+              ...room,
+              unreadCount: (room.unreadCount || 0) + 1,
+              Messages: [{
+                id: newMessage.id,
+                content: newMessage.content,
+                createdAt: newMessage.createdAt,
+                User: newMessage.User
+              }]
+            }
+          }
+          return room
+        }))
       }
-      
-      // 這裡可以添加其他功能：
-      // - 更新聊天室列表的最後訊息時間和內容
-      // - 顯示桌面通知或應用內通知
-      // - 更新未讀訊息計數
-      // - 播放訊息提示音
-      // - 更新聊天室排序（將有新訊息的聊天室排到前面）
     }
 
     // 向 socketService 註冊訊息回調函數
@@ -287,6 +273,21 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       // 之後如果有新訊息透過 Socket 到達，會通過上面的 useEffect 添加到這個列表中
       setMessages(messagesData)
       console.log('訊息設定完成')
+      
+      // 🆕 標記聊天室為已讀（如果有未讀訊息）
+      if (room.unreadCount > 0) {
+        try {
+          await chatService.markRoomAsRead(room.id)
+          console.log('聊天室已標記為已讀')
+          
+          // 更新本地聊天室列表中的未讀數量
+          setRooms(prev => prev.map(r => 
+            r.id === room.id ? { ...r, unreadCount: 0, lastReadAt: new Date() } : r
+          ))
+        } catch (readErr) {
+          console.error('標記已讀失敗:', readErr)
+        }
+      }
       
       // 【架構說明】為什麼不需要處理 Socket 房間加入/離開？
       // 在這個實現中，我們在應用初始化時就加入了用戶所有的聊天室（見 loadRoomsAndJoinAll）
@@ -460,14 +461,25 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                 <div
                   key={room.id}
                   data-room-id={room.id}
-                  className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''}`}
+                  className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''} ${room.unreadCount > 0 ? 'has-unread' : ''}`}
                   onClick={() => selectRoom(room)}
                 >
-                  <div className="room-name">{room.name || 'Unnamed Room'}</div>
-                  <div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>
+                  <div className="room-header">
+                    <div className="room-name">{room.name || 'Unnamed Room'}</div>
+                    <div className="room-badges">
+                      <div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>
+                      {room.unreadCount > 0 && (
+                        <div className="unread-badge">{room.unreadCount}</div>
+                      )}
+                    </div>
+                  </div>
                   {room.Messages && room.Messages.length > 0 && (
                     <div className="last-message">
-                      {room.Messages[0].User.username}: {room.Messages[0].content}
+                      <span className="sender">{room.Messages[0].User.username}:</span>
+                      <span className="content">{room.Messages[0].content}</span>
+                      <span className="time">
+                        {new Date(room.Messages[0].createdAt).toLocaleTimeString()}
+                      </span>
                     </div>
                   )}
                 </div>

@@ -116,6 +116,29 @@
   border-right: 3px solid #4a90e2;
 }
 
+.room-item.has-unread {
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+}
+
+.room-item.has-unread.active {
+  background-color: #e3f2fd;
+  border-left: 3px solid #ffc107;
+}
+
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.room-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .room-name {
   font-weight: 600;
   margin-bottom: 0.25rem;
@@ -134,6 +157,26 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.last-message .sender {
+  font-weight: 500;
+  color: #666;
+}
+
+.last-message .content {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.last-message .time {
+  font-size: 0.75rem;
+  color: #aaa;
+  flex-shrink: 0;
 }
 
 .no-rooms {
