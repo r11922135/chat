@@ -96,9 +96,12 @@ io.on('connection', (socket) => {
         content: data.content.trim(),
       });
 
-      // 取得完整的訊息資訊（包含用戶資訊）
+      // 取得完整的訊息資訊（包含用戶資訊和聊天室資訊）
       const messageWithUser = await Message.findByPk(message.id, {
-        include: [{ model: User, attributes: ['id', 'username'] }]
+        include: [
+          { model: User, attributes: ['id', 'username'] },
+          { model: Room, attributes: ['id', 'name'] }  // 🆕 加入聊天室資訊
+        ]
       });
 
       // 廣播給聊天室內的所有用戶
@@ -117,6 +120,49 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Socket 訊息處理錯誤:', error);
       socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  // 🆕 處理邀請用戶加入 Socket 房間
+  socket.on('invite-users-to-room', (data) => {
+    try {
+      console.log('收到邀請用戶到房間請求:', data);
+      
+      const { roomId, userIds } = data;
+      
+      if (!roomId || !Array.isArray(userIds)) {
+        throw new Error('Invalid data');
+      }
+      
+      // 讓被邀請的在線用戶加入 Socket 房間
+      const roomName = roomId.toString();
+      let joinedCount = 0;
+      
+      console.log('當前線上 Socket 連接數:', io.sockets.sockets.size);
+      console.log('要邀請的用戶 ID:', userIds);
+      
+      io.sockets.sockets.forEach((clientSocket) => {
+        console.log(`檢查 Socket ${clientSocket.id}, userId: ${clientSocket.userId}`);
+        if (clientSocket.userId && userIds.includes(clientSocket.userId)) {
+          clientSocket.join(roomName);
+          joinedCount++;
+          console.log(`✅ 用戶 ${clientSocket.userId} 的 Socket 已加入房間 ${roomName}`);
+        }
+      });
+      
+      console.log(`邀請處理完成，${joinedCount} 位在線用戶已加入 Socket 房間`);
+      
+    } catch (error) {
+      console.error('邀請用戶到房間錯誤:', error);
+      socket.emit('error', { message: error.message || 'Failed to invite users to room' });
+    }
+  });
+
+  // 🆕 用戶身份註冊
+  socket.on('register-user', (data) => {
+    if (data.userId) {
+      socket.userId = data.userId;
+      console.log(`Socket ${socket.id} 註冊用戶 ${data.userId}`);
     }
   });
 

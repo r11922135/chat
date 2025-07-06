@@ -155,33 +155,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     scrollToBottom()
   }, [messages]) // 依賴項：當 messages 狀態改變時執行滾動
   
-  // 【滾動時機說明】
-  // 這個 useEffect 會在以下情況觸發：
-  // 1. 載入聊天室的歷史訊息後
-  // 2. 收到新的即時訊息後
-  // 3. 用戶發送訊息後
-  // 
-  // 為什麼選擇自動滾動？
-  // - 聊天應用的慣例：最新訊息應該立即可見
-  // - 避免用戶手動滾動的麻煩
-  // - 提供連貫的對話體驗
-
-  // 處理新訊息的 useEffect - 這是整個聊天應用最核心的邏輯之一
-  // 【重要】這個 useEffect 必須在 selectedRoom 改變時重新執行，原因如下：
-  // 
-  // 1. JavaScript 閉包（Closure）問題：
-  //    - 如果只註冊一次，handleNewMessage 函數會「記住」它被創建時的 selectedRoom 值
-  //    - 即使後來 selectedRoom 改變了，已註冊的 handleNewMessage 仍然使用舊的值
-  //    - 這就是所謂的「閉包陷阱」
-  // 
-  // 2. React 函數組件的重新渲染：
-  //    - 每次 selectedRoom 改變時，整個組件會重新渲染
-  //    - 但是 Socket 的事件監聽器還是指向舊的 handleNewMessage 函數
-  //    - 新的 handleNewMessage 函數不會自動替換舊的監聽器
-  //
-  // 3. 解決方案：
-  //    - 在 useEffect 中重新註冊監聽器，確保它使用最新的 selectedRoom 值
-  //    - 使用清理函數移除舊的監聽器，避免重複註冊
   useEffect(() => {
     // 定義處理新訊息的回調函數
     // 這個函數會在每次 selectedRoom 改變時重新創建，確保它能存取到最新的 selectedRoom 值
@@ -206,11 +179,36 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       } else {
         // 🆕 如果訊息不屬於當前聊天室，更新聊天室列表中的未讀數和最新訊息
         console.log('訊息不屬於當前聊天室，更新聊天室列表')
-        setRooms(prev => prev.map(room => {
-          if (room.id === newMessage.roomId) {
-            return {
-              ...room,
-              unreadCount: (room.unreadCount || 0) + 1,
+        setRooms(prev => {
+          const existingRoom = prev.find(room => room.id === newMessage.roomId)
+          
+          if (existingRoom) {
+            // 如果房間已存在，更新未讀數和最新訊息
+            return prev.map(room => {
+              if (room.id === newMessage.roomId) {
+                return {
+                  ...room,
+                  unreadCount: (room.unreadCount || 0) + 1,
+                  Messages: [{
+                    id: newMessage.id,
+                    content: newMessage.content,
+                    createdAt: newMessage.createdAt,
+                    User: newMessage.User
+                  }]
+                }
+              }
+              return room
+            })
+          } else {
+            // 如果房間不存在，新增一個新房間到列表最上面
+            const newRoom = {
+              id: newMessage.roomId,
+              name: newMessage.Room.name, // 簡單的預設名稱
+              isGroup: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              unreadCount: 1,
+              lastReadAt: null,
               Messages: [{
                 id: newMessage.id,
                 content: newMessage.content,
@@ -218,9 +216,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                 User: newMessage.User
               }]
             }
+            console.log('新增新聊天室到列表:', newRoom)
+            return [newRoom, ...prev] // 放在最上面
           }
-          return room
-        }))
+        })
       }
     }
 

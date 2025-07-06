@@ -47,12 +47,25 @@ class SocketService {
           }
         })
       })
+
+      // 🆕 統一的錯誤處理
+      this.socket.on('error', (error) => {
+        console.error('Socket 錯誤:', error)
+        // 可以在這裡添加更多錯誤處理邏輯，比如顯示用戶友好的錯誤訊息
+      })
     }
     return this.socket
   }
 
   // 處理連接成功後的邏輯（初始連接和重連都會執行）
   handleConnection() {
+    // 🆕 連接後立即註冊用戶身份
+    const userId = localStorage.getItem('chatUserId')
+    if (userId && this.socket) {
+      this.socket.emit('register-user', { userId: parseInt(userId) })
+      console.log('已註冊用戶身份:', userId)
+    }
+    
     if (this.onConnectedCallback) {
       this.onConnectedCallback()
     }
@@ -94,6 +107,16 @@ class SocketService {
   sendMessage(messageData) {
     if (this.socket) {
       this.socket.emit('send-message', messageData)
+    }
+  }
+
+  // 🆕 邀請用戶加入 Socket 房間
+  inviteUsersToRoom(roomId, userIds) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('invite-users-to-room', { roomId, userIds })
+      console.log('發送邀請用戶到房間請求:', { roomId, userIds })
+    } else {
+      console.warn('Socket 未連接，無法邀請用戶到房間')
     }
   }
 
