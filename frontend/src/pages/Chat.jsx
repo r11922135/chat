@@ -176,6 +176,31 @@ const Chat = ({ onLogout, onAuthExpired }) => {
           console.log('添加新訊息到列表')
           return [...prev, newMessage]
         })
+        
+        // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
+        // 當收到屬於當前聊天室的新訊息時，更新聊天室列表的最新訊息顯示
+        setRooms(prev => {
+          const updatedRooms = prev.map(room => {
+            if (room.id === selectedRoom.id) {
+              return {
+                ...room,
+                Messages: [{
+                  id: newMessage.id,
+                  content: newMessage.content,
+                  createdAt: newMessage.createdAt,
+                  User: newMessage.User
+                }]
+              }
+            }
+            return room
+          })
+          
+          // 將更新的聊天室移動到最上方
+          const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
+          const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
+          return [targetRoom, ...otherRooms]
+        })
+        
       } else {
         // 🆕 如果訊息不屬於當前聊天室，更新聊天室列表中的未讀數和最新訊息
         console.log('訊息不屬於當前聊天室，更新聊天室列表')
@@ -183,8 +208,8 @@ const Chat = ({ onLogout, onAuthExpired }) => {
           const existingRoom = prev.find(room => room.id === newMessage.roomId)
           
           if (existingRoom) {
-            // 如果房間已存在，更新未讀數和最新訊息
-            return prev.map(room => {
+            // 如果房間已存在，更新未讀數和最新訊息，並移動到最上方
+            const updatedRooms = prev.map(room => {
               if (room.id === newMessage.roomId) {
                 return {
                   ...room,
@@ -199,11 +224,16 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               }
               return room
             })
+            
+            // 將更新的聊天室移動到最上方
+            const targetRoom = updatedRooms.find(room => room.id === newMessage.roomId)
+            const otherRooms = updatedRooms.filter(room => room.id !== newMessage.roomId)
+            return [targetRoom, ...otherRooms]
           } else {
             // 如果房間不存在，新增一個新房間到列表最上面
             const newRoom = {
               id: newMessage.roomId,
-              name: newMessage.Room.name, // 簡單的預設名稱
+              name: newMessage.Room.name,
               isGroup: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -351,6 +381,16 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         socketService.sendMessage(messageData)
         console.log('訊息已透過 Socket 發送:', messageData)
         setError('')
+        
+        // 【補強功能1】發送成功後更新已讀時間
+        // 發送者發送訊息後，該聊天室對該用戶來說是已讀狀態
+        try {
+          await chatService.markRoomAsRead(selectedRoom.id)
+          console.log('發送訊息後已標記聊天室為已讀')
+        } catch (readErr) {
+          console.error('標記已讀失敗:', readErr)
+        }
+        
       } else {
         throw new Error('Socket not connected')
       }
@@ -369,6 +409,41 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         setMessages(prev => [...prev, messageResponse])
         console.log('使用 HTTP API 發送訊息成功')
         setError('')
+        
+        // 【補強功能1】發送成功後更新已讀時間
+        try {
+          await chatService.markRoomAsRead(selectedRoom.id)
+          console.log('發送訊息後已標記聊天室為已讀')
+        } catch (readErr) {
+          console.error('標記已讀失敗:', readErr)
+        }
+        
+        // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
+        // 當使用 HTTP API 時，需要手動更新聊天室列表
+        setRooms(prev => {
+          const updatedRooms = prev.map(room => {
+            if (room.id === selectedRoom.id) {
+              return {
+                ...room,
+                Messages: [{
+                  id: messageResponse.id,
+                  content: messageResponse.content,
+                  createdAt: messageResponse.createdAt,
+                  User: messageResponse.User
+                }],
+                unreadCount: 0, // 發送者看到的是已讀狀態
+                lastReadAt: new Date()
+              }
+            }
+            return room
+          })
+          
+          // 將更新的聊天室移動到最上方
+          const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
+          const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
+          return [targetRoom, ...otherRooms]
+        })
+        
       } catch (httpErr) {
         console.error('HTTP send message error:', httpErr)
         setError('Failed to send message')
