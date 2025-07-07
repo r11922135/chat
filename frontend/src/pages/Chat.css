@@ -26,6 +26,7 @@
 .chat-header h1 {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: bold;
 }
 
 .user-info {
@@ -35,7 +36,7 @@
 }
 
 .logout-btn {
-  background-color: #e74c3c;
+  background-color: #023978;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -45,7 +46,7 @@
 }
 
 .logout-btn:hover {
-  background-color: #c0392b;
+  background-color: #071b46;
 }
 
 /* 主要聊天區域 */
@@ -83,7 +84,7 @@
   border: none;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 4px;
   font-size: 1.2rem;
   cursor: pointer;
   display: flex;
@@ -177,6 +178,39 @@
   font-size: 0.75rem;
   color: #aaa;
   flex-shrink: 0;
+}
+
+/* 未讀訊息徽章 */
+.unread-badge {
+  background-color: #dc3545;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+}
+
+/* 閃爍動畫 */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .no-rooms {

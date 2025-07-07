@@ -1,3 +1,4 @@
+@import "tailwindcss";
 /* 全域樣式重置，讓聊天室占滿整個瀏覽器 */
 * {
   margin: 0;
@@ -11,7 +12,8 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden; /* 防止全域滾動 */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /*font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;*/
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
 }
 
 #root {

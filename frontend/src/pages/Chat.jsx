@@ -5,44 +5,15 @@ import InviteUsers from '../components/InviteUsers'
 import './Chat.css'
 
 const Chat = ({ onLogout, onAuthExpired }) => {
-  // 【狀態管理】聊天組件的核心狀態
-  
-  // 用戶的聊天室列表 - 存儲從後端獲取的所有聊天室資訊
-  // 包含聊天室 ID、名稱、參與者等資訊
   const [rooms, setRooms] = useState([])
-  
-  // 當前選中的聊天室 - 用戶正在查看的聊天室
-  // 這個狀態決定了右側顯示哪個聊天室的訊息
-  // 也影響了新訊息的過濾邏輯（只顯示屬於當前聊天室的訊息）
   const [selectedRoom, setSelectedRoom] = useState(null)
-  
-  // 當前聊天室的訊息列表 - 顯示在聊天區域的所有訊息
-  // 包含歷史訊息（從後端載入）和即時訊息（透過 Socket 接收）
   const [messages, setMessages] = useState([])
-  
-  // 輸入框中的新訊息內容 - 用戶正在輸入的訊息
-  // 這是受控組件的狀態，與輸入框的值綁定
   const [newMessage, setNewMessage] = useState('')
-  
-  // 頁面載入狀態 - 控制載入指示器的顯示
-  // 在載入聊天室列表時為 true，載入完成後為 false
   const [loading, setLoading] = useState(true)
-  
-  // 錯誤訊息 - 存儲和顯示各種錯誤情況
-  // 例如：網路錯誤、API 錯誤、身份驗證錯誤等
   const [error, setError] = useState('')
-  
-  // 邀請用戶模態窗口的顯示狀態
-  // 控制邀請用戶對話框的開啟和關閉
   const [showInviteModal, setShowInviteModal] = useState(false)
-  
-  // 【Ref 引用】用於 DOM 操作
-  // 指向訊息列表底部的元素，用於實現自動滾動功能
-  // 當有新訊息時，自動滾動到底部讓用戶看到最新訊息
   const messagesEndRef = useRef(null)
   
-  // 【本地存儲資料】從瀏覽器的 localStorage 獲取用戶資訊
-  // 這些資料在用戶登入時被存儲，用於身份驗證和訊息發送
   const currentUser = localStorage.getItem('chatUsername')       // 用戶名
   const currentUserId = localStorage.getItem('chatUserId')       // 用戶 ID
   const token = localStorage.getItem('chatToken')                // 身份驗證 token
@@ -332,7 +303,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   // 【開發工具】測試 Socket 連接狀態
   // 這是一個調試函數，幫助開發者檢查 Socket 連接和發送測試訊息
-  const testSocketConnection = () => {
+  /*const testSocketConnection = () => {
     console.log('=== Socket 連接測試 ===')
     console.log('Socket 連接狀態:', socketService.getSocket()?.connected)
     console.log('Socket ID:', socketService.getSocket()?.id)
@@ -349,7 +320,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     } else {
       console.log('沒有選中聊天室')
     }
-  }
+  }*/
 
   // 發送訊息函數
   // 這個函數處理用戶發送新訊息的邏輯
@@ -541,7 +512,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                   <div className="room-header">
                     <div className="room-name">{room.name || 'Unnamed Room'}</div>
                     <div className="room-badges">
-                      <div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>
+                      {/*<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>*/}
                       {room.unreadCount > 0 && (
                         <div className="unread-badge">{room.unreadCount}</div>
                       )}
@@ -569,19 +540,11 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               <div className="chat-window-header">
                 <div className="room-info">
                   <h3>{selectedRoom.name || 'Unnamed Room'}</h3>
-                  <span className="room-type-badge">
+                  {/*<span className="room-type-badge">
                     {selectedRoom.isGroup ? 'Group Chat' : 'Direct Message'}
-                  </span>
+                  </span>*/}
                 </div>
                 <div className="header-actions">
-                  <button 
-                    className="test-btn"
-                    onClick={testSocketConnection}
-                    title="測試 Socket 連接"
-                    style={{marginRight: '10px', padding: '5px 10px', fontSize: '12px'}}
-                  >
-                    Test Socket
-                  </button>
                   {selectedRoom.isGroup && (
                     <button 
                       className="invite-btn"
