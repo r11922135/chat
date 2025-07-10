@@ -27,14 +27,23 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:5174"], // 支援多個前端端口
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5174", 
+      "http://localhost:3000",
+      "https://*.amazonaws.com",  // 允許 AWS 網域
+      "https://*.cloudfront.net"  // 允許 CloudFront
+    ], 
     methods: ["GET", "POST"]
   }
 });
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors()); // 讓前後端可以跨網域請求，就算不同port也是不同網域
 app.use(express.json()); // 可以解析JSON如果header是application/json
+
+// 🎯 提供靜態文件（前端 build 檔案）
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Socket.IO 連接處理
 io.on('connection', (socket) => {
