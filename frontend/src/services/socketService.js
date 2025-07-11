@@ -15,9 +15,20 @@ class SocketService {
     this.onConnectedCallback = null // 連接成功後的回調（初始連接和重連都會執行）
   }
 
+  getSocketURL() {
+    if (process.env.NODE_ENV === 'production') {
+      return window.location.origin
+    }
+    return 'http://localhost:5000'
+  }
+  
   connect() {
     if (!this.socket) {
-      this.socket = io('http://localhost:5000', {
+      // 🎯 動態取得 Socket URL
+      const socketURL = this.getSocketURL()
+      console.log('🔌 Socket 連接到:', socketURL)
+      
+      this.socket = io(socketURL, {
         autoConnect: true
       })
 

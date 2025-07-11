@@ -1,7 +1,17 @@
 // 聊天室相關的 API 服務
 import axios from 'axios'
 
-const baseURL = 'http://localhost:5000/api'
+// 🎯 動態 API URL 設定
+const getBaseURL = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return '/api'
+  }
+  return 'http://localhost:5000/api'
+}
+
+const baseURL = getBaseURL()
+
+console.log('🔗 API Base URL:', baseURL)
 
 // 取得儲存在 localStorage 的 token
 const getToken = () => {
