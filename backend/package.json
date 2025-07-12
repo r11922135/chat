@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "prestart": "echo '🔨 開始建置前端...' && cd ../frontend && npm install && npm run build && cd ../backend && echo '📁 複製前端檔案...' && cp -r ../frontend/dist ./dist && echo '✅ 建置完成'",
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
