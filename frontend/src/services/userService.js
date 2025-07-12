@@ -5,6 +5,9 @@ const getBaseURL = () => {
   if (process.env.NODE_ENV === 'production') {
     return '/api'
   }
+  else if (process.env.NODE_ENV === 'render') {
+    return 'https://chat-n5a3.onrender.com/api' 
+  }
   return 'http://localhost:5000/api'
 }
 

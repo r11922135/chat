@@ -19,6 +19,9 @@ class SocketService {
     if (process.env.NODE_ENV === 'production') {
       return window.location.origin
     }
+    else if (process.env.NODE_ENV === 'render') {
+      return 'https://chat-n5a3.onrender.com' 
+    }
     return 'http://localhost:5000'
   }
   
