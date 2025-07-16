@@ -78,7 +78,7 @@
   color: #333;
 }
 
-.new-chat-btn {
+/*.new-chat-btn {
   background-color: #4a90e2;
   color: white;
   border: none;
@@ -94,7 +94,7 @@
 
 .new-chat-btn:hover {
   background-color: #357abd;
-}
+}*/
 
 .rooms-list {
   flex: 1;
@@ -451,4 +451,69 @@
   .message-form {
     padding: 1rem;
   }
+}
+
+/*.search-user-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+}*/
+
+/* 聊天室列表頂部按鈕區域 */
+.header-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 統一按鈕基礎樣式 */
+.search-user-btn,
+.new-chat-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* 搜尋用戶按鈕 (一對一私訊) */
+.search-user-btn {
+  background-color: #28a745; /* 綠色表示新增聯繫人/私訊 */
+}
+
+.search-user-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+/* 創建群組按鈕 */
+.new-chat-btn {
+  background-color: #4a90e2; /* 藍色表示創建群組 */
+}
+
+.new-chat-btn:hover {
+  background-color: #357abd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+}
+
+/* 按鈕點擊效果 */
+.search-user-btn:active,
+.new-chat-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }

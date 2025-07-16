@@ -22,15 +22,6 @@ const App = () => {
     setCurrentPage('login')
   }
   
-  // 處理身份驗證過期
-  const handleAuthExpired = () => {
-    localStorage.removeItem('chatToken')
-    localStorage.removeItem('chatUsername')
-    localStorage.removeItem('chatUserId')
-    setToken(null) // 清除 token state
-    setCurrentPage('login')
-  }
-  
   // 監聽 localStorage 的變化（用於登入成功後更新 token）
   useEffect(() => {
     const handleStorageChange = () => {
@@ -48,7 +39,7 @@ const App = () => {
   const renderPage = () => {
     // 如果已登入，直接顯示聊天室
     if (token) {
-      return <Chat onLogout={handleLogout} onAuthExpired={handleAuthExpired} />
+      return <Chat onLogout={handleLogout} onAuthExpired={handleLogout} />
     }
     
     // 如果未登入，根據 currentPage 決定顯示登入還是註冊

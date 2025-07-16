@@ -49,6 +49,14 @@ app.use(express.static(path.join(__dirname, 'dist')));
 io.on('connection', (socket) => {
   console.log('用戶連接:', socket.id);
 
+  // 用戶身份註冊
+  socket.on('register-user', (data) => {
+    if (data.userId) {
+      socket.userId = data.userId;
+      console.log(`Socket ${socket.id} 註冊用戶 ${data.userId}`);
+    }
+  });
+  
   // 用戶加入聊天室
   socket.on('join-room', (roomId) => {
     const roomName = roomId.toString(); // 確保轉換為字串，與後續邏輯一致
@@ -98,15 +106,8 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // 儲存訊息到資料庫
-      const message = await Message.create({
-        roomId: data.roomId,
-        userId: data.userId,
-        content: data.content.trim(),
-      });
-
       // 取得完整的訊息資訊（包含用戶資訊和聊天室資訊）
-      const messageWithUser = await Message.findByPk(message.id, {
+      const messageWithUser = await Message.findByPk(data.id, {
         include: [
           { model: User, attributes: ['id', 'username'] },
           { model: Room, attributes: ['id', 'name'] }  // 🆕 加入聊天室資訊
@@ -132,7 +133,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 🆕 處理邀請用戶加入 Socket 房間
+  // 處理邀請用戶加入 Socket 房間
   socket.on('invite-users-to-room', (data) => {
     try {
       console.log('收到邀請用戶到房間請求:', data);
@@ -164,14 +165,6 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('邀請用戶到房間錯誤:', error);
       socket.emit('error', { message: error.message || 'Failed to invite users to room' });
-    }
-  });
-
-  // 🆕 用戶身份註冊
-  socket.on('register-user', (data) => {
-    if (data.userId) {
-      socket.userId = data.userId;
-      console.log(`Socket ${socket.id} 註冊用戶 ${data.userId}`);
     }
   });
 
@@ -490,6 +483,96 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
     res.status(201).json(roomData);
   } catch (err) {
     console.error('Create room error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 創建或取得一對一聊天室
+app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
+  const { targetUserId } = req.body;
+  const currentUserId = req.user.userId;
+  
+  if (!targetUserId || targetUserId === currentUserId) {
+    return res.status(400).json({ message: 'Invalid target user' });
+  }
+  
+  try {
+    const existingRooms = await sequelize.query(`
+      SELECT r.*, ru1."lastReadAt"
+      FROM "Rooms" r, "RoomUsers" ru1, "RoomUsers" ru2
+      WHERE r."id" = ru1."roomId" AND r."id" = ru2."roomId"
+        AND r."isGroup" = false
+        AND ru1."userId" = :currentUserId
+        AND ru2."userId" = :targetUserId
+        AND ru1."userId" != ru2."userId"
+    `, {
+      replacements: { 
+        currentUserId: currentUserId,
+        targetUserId: targetUserId
+      },
+      type: sequelize.QueryTypes.SELECT
+    });
+    
+    // 如果找到現有聊天室，返回它
+    if (existingRooms.length > 0) {
+      const room = existingRooms[0];
+      console.log('找到現有一對一聊天室:', room.id);
+      
+      return res.json({
+        id: room.id,
+        name: room.name,
+        isGroup: room.isGroup,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        unreadCount: 0,
+        lastReadAt: room.lastReadAt,
+        Messages: []
+      });
+    }
+    
+    console.log('未找到現有聊天室，創建新的一對一聊天室');
+    
+    // 建立新的一對一聊天室
+    const newRooms = await sequelize.query(`
+      INSERT INTO "Rooms" (name, "isGroup", "createdAt", "updatedAt")
+      VALUES (NULL, false, NOW(), NOW())
+      RETURNING *
+    `, {
+      type: sequelize.QueryTypes.INSERT
+    });
+    
+    const newRoom = newRooms[0][0];
+    
+    // 加入兩個用戶
+    await sequelize.query(`
+      INSERT INTO "RoomUsers" ("roomId", "userId", "createdAt", "updatedAt")
+      VALUES 
+        (:roomId, :currentUserId, NOW(), NOW()),
+        (:roomId, :targetUserId, NOW(), NOW())
+    `, {
+      replacements: {
+        roomId: newRoom.id,
+        currentUserId,
+        targetUserId
+      },
+      type: sequelize.QueryTypes.INSERT
+    });
+    
+    console.log('新聊天室創建成功:', newRoom.id);
+    
+    res.status(201).json({
+      id: newRoom.id,
+      name: newRoom.name,
+      isGroup: newRoom.isGroup,
+      createdAt: newRoom.createdAt,
+      updatedAt: newRoom.updatedAt,
+      unreadCount: 0,
+      lastReadAt: null,
+      Messages: []
+    });
+    
+  } catch (err) {
+    console.error('Create direct room error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

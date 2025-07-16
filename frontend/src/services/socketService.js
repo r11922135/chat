@@ -27,25 +27,24 @@ class SocketService {
   
   connect() {
     if (!this.socket) {
-      // 🎯 動態取得 Socket URL
       const socketURL = this.getSocketURL()
       console.log('🔌 Socket 連接到:', socketURL)
       
       this.socket = io(socketURL, {
-        autoConnect: true
+        autoConnect: true //建立socket連接時自動連接
       })
 
       this.socket.on('connect', () => {
         console.log('Socket 連接成功:', this.socket.id)
         // 每次連接成功都執行初始化邏輯
-        this.handleConnection()
-      })
-
-      // 監聽重連事件
-      this.socket.on('reconnect', () => {
-        console.log('Socket 連接成功:', this.socket.id)
-        // 重連時也執行初始化邏輯
-        this.handleConnection()
+        const userId = localStorage.getItem('chatUserId')
+        if (userId && this.socket) {
+          this.socket.emit('register-user', { userId: parseInt(userId) })
+          console.log('已註冊用戶身份:', userId)
+        }
+        if (this.onConnectedCallback) {
+          this.onConnectedCallback()
+        }
       })
 
       this.socket.on('disconnect', () => {
@@ -62,27 +61,17 @@ class SocketService {
         })
       })
 
-      // 🆕 統一的錯誤處理
+      // 統一的錯誤處理
       this.socket.on('error', (error) => {
         console.error('Socket 錯誤:', error)
         // 可以在這裡添加更多錯誤處理邏輯，比如顯示用戶友好的錯誤訊息
       })
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Socket 連接錯誤:', error)
+      })
     }
     return this.socket
-  }
-
-  // 處理連接成功後的邏輯（初始連接和重連都會執行）
-  handleConnection() {
-    // 🆕 連接後立即註冊用戶身份
-    const userId = localStorage.getItem('chatUserId')
-    if (userId && this.socket) {
-      this.socket.emit('register-user', { userId: parseInt(userId) })
-      console.log('已註冊用戶身份:', userId)
-    }
-    
-    if (this.onConnectedCallback) {
-      this.onConnectedCallback()
-    }
   }
 
   // 設置連接回調（初始連接和重連都會執行）

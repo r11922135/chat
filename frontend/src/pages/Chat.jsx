@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import chatService from '../services/chatService'
 import socketService from '../services/socketService'
 import InviteUsers from '../components/InviteUsers'
+import UserSearch from '../components/UserSearch'
 import './Chat.css'
 
 const Chat = ({ onLogout, onAuthExpired }) => {
@@ -12,6 +13,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showUserSearch, setShowUserSearch] = useState(false)
   const messagesEndRef = useRef(null)
   
   const currentUser = localStorage.getItem('chatUsername')       // 用戶名
@@ -135,6 +137,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       // 檢查新訊息是否屬於當前選中的聊天室
       if (selectedRoom && String(newMessage.roomId) === String(selectedRoom.id)) {
         console.log('訊息屬於當前聊天室，更新訊息列表')
+        chatService.markRoomAsRead(newMessage.roomId) // 標記為已讀
         
         // 更新當前聊天室的訊息列表
         setMessages(prev => {
@@ -301,28 +304,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     }
   }
 
-  // 【開發工具】測試 Socket 連接狀態
-  // 這是一個調試函數，幫助開發者檢查 Socket 連接和發送測試訊息
-  /*const testSocketConnection = () => {
-    console.log('=== Socket 連接測試 ===')
-    console.log('Socket 連接狀態:', socketService.getSocket()?.connected)
-    console.log('Socket ID:', socketService.getSocket()?.id)
-    console.log('當前選中聊天室:', selectedRoom)
-    
-    if (selectedRoom) {
-      console.log('測試發送訊息到聊天室:', selectedRoom.id)
-      const testMessage = {
-        roomId: selectedRoom.id,
-        userId: parseInt(currentUserId),
-        content: `測試訊息 - ${new Date().toLocaleTimeString()}`
-      }
-      socketService.sendMessage(testMessage)
-    } else {
-      console.log('沒有選中聊天室')
-    }
-  }*/
-
-  // 發送訊息函數
   // 這個函數處理用戶發送新訊息的邏輯
   const handleSendMessage = async (e) => {
     e.preventDefault() // 阻止表單默認提交行為
@@ -331,13 +312,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     // trim() 移除前後空格，確保不發送空訊息
     if (!newMessage.trim() || !selectedRoom) return
 
-    // 構建訊息資料對象
-    const messageData = {
-      roomId: selectedRoom.id,
-      userId: parseInt(currentUserId), // 確保 userId 是數字類型
-      content: newMessage.trim()
-    }
-
     // 【用戶體驗優化】立即清空輸入框
     // 這提供即時反饋，讓用戶感覺訊息發送很快
     // 即使後端處理有延遲，用戶也能立即開始輸入下一條訊息
@@ -345,84 +319,58 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     setNewMessage('')
 
     try {
-      // 【優先使用 Socket.IO】發送即時訊息
-      // Socket.IO 提供更快的即時通訊體驗
+      // 【新架構】先使用 API 儲存訊息到資料庫
+      // API 負責：資料驗證、資料庫儲存、返回完整訊息物件
+      const messageResponse = await chatService.sendMessage(selectedRoom.id, messageContent)
+      console.log('API 儲存訊息成功:', messageResponse)
+
+      // 【新架構】再使用 Socket 發送即時訊息給其他用戶
+      // Socket 負責：即時廣播給聊天室其他成員
       if (socketService.getSocket()?.connected) {
-        // 使用 Socket.IO 發送即時訊息
-        socketService.sendMessage(messageData)
-        console.log('訊息已透過 Socket 發送:', messageData)
-        setError('')
-        
-        // 【補強功能1】發送成功後更新已讀時間
-        // 發送者發送訊息後，該聊天室對該用戶來說是已讀狀態
-        try {
-          await chatService.markRoomAsRead(selectedRoom.id)
-          console.log('發送訊息後已標記聊天室為已讀')
-        } catch (readErr) {
-          console.error('標記已讀失敗:', readErr)
-        }
-        
+        // 使用 API 返回的完整訊息物件進行廣播
+        socketService.sendMessage(messageResponse)
+        console.log('Socket 廣播訊息成功:', messageResponse)
       } else {
-        throw new Error('Socket not connected')
+        console.warn('Socket 未連接，無法即時廣播訊息')
       }
-    } catch (err) {
-      console.error('Socket send message error:', err)
-      
-      // 【備用方案】如果 Socket 發送失敗，回退到 HTTP API
-      // 這是一個重要的容錯機制，確保在網路問題時訊息仍能發送
-      // 比如：Socket 連接不穩定、伺服器重啟、網路切換等情況
+      // 【更新當前用戶的訊息列表
+      setMessages(prev => [...prev, messageResponse])
+      // 【標記聊天室為已讀】
       try {
-        const messageResponse = await chatService.sendMessage(selectedRoom.id, messageContent)
-        
-        // 【手動更新訊息列表】
-        // 因為 Socket 沒有運作，不會收到即時訊息回調
-        // 所以需要手動將發送的訊息添加到列表中
-        setMessages(prev => [...prev, messageResponse])
-        console.log('使用 HTTP API 發送訊息成功')
-        setError('')
-        
-        // 【補強功能1】發送成功後更新已讀時間
-        try {
-          await chatService.markRoomAsRead(selectedRoom.id)
-          console.log('發送訊息後已標記聊天室為已讀')
-        } catch (readErr) {
-          console.error('標記已讀失敗:', readErr)
-        }
-        
-        // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
-        // 當使用 HTTP API 時，需要手動更新聊天室列表
-        setRooms(prev => {
-          const updatedRooms = prev.map(room => {
-            if (room.id === selectedRoom.id) {
-              return {
-                ...room,
-                Messages: [{
-                  id: messageResponse.id,
-                  content: messageResponse.content,
-                  createdAt: messageResponse.createdAt,
-                  User: messageResponse.User
-                }],
-                unreadCount: 0, // 發送者看到的是已讀狀態
-                lastReadAt: new Date()
-              }
-            }
-            return room
-          })
-          
-          // 將更新的聊天室移動到最上方
-          const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
-          const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
-          return [targetRoom, ...otherRooms]
-        })
-        
-      } catch (httpErr) {
-        console.error('HTTP send message error:', httpErr)
-        setError('Failed to send message')
-        
-        // 【用戶體驗優化】發送失敗時恢復輸入框內容
-        // 讓用戶可以重試，而不需要重新輸入整個訊息
-        setNewMessage(messageContent)
+        await chatService.markRoomAsRead(selectedRoom.id)
+        console.log('發送訊息後已標記聊天室為已讀')
+      } catch (readErr) {
+        console.error('標記已讀失敗:', readErr)
       }
+      
+      //【更新聊天室列表中的最新訊息預覽並移動到最上方】
+      setRooms(prev => {
+        const updatedRooms = prev.map(room => {
+          if (room.id === selectedRoom.id) {
+            return {
+              ...room,
+              Messages: [{
+                id: messageResponse.id,
+                content: messageResponse.content,
+                createdAt: messageResponse.createdAt,
+                User: messageResponse.User
+              }],
+              unreadCount: 0, // 發送者看到的是已讀狀態
+              lastReadAt: new Date()
+            }
+          }
+          return room
+        })
+        const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
+        const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
+        return [targetRoom, ...otherRooms]
+      })
+      setError('')
+    } catch (err) {
+      console.error('發送訊息失敗:', err)
+      setError('Failed to send message')
+      // 【用戶體驗優化】發送失敗時恢復輸入框內容
+      setNewMessage(messageContent)
     }
   }
 
@@ -466,11 +414,51 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     }
   }
 
+  // 新增處理開始一對一聊天的函數
+  const handleStartDirectChat = async (room, targetUser) => {
+    try {
+      // 加入新聊天室到 Socket
+      if (socketService.getSocket()?.connected) {
+        socketService.joinRoom(room.id)
+        console.log(`加入一對一聊天室: ${room.id}`)
+      }
+      
+      // 重新載入聊天室列表
+      await loadRoomsAndJoinAll()
+      
+      // 選擇新建的聊天室
+      setSelectedRoom(room)
+      setShowUserSearch(false)
+    } catch (err) {
+      console.error('Start direct chat error:', err)
+      alert('開啟聊天失敗，請重試')
+    }
+  }
+
   // 邀請成功後的處理
   const handleInviteSuccess = () => {
     setShowInviteModal(false)
     // 重新載入聊天室資訊以更新成員列表
     loadRoomsAndJoinAll()
+  }
+
+  // 新增獲取聊天室顯示名稱的函數
+  const getRoomDisplayName = (room) => {
+    if (room.isGroup) {
+      return (
+        <span className="room-display-name">
+          <span className="room-icon group-icon">👥</span>
+          {room.name || 'Unnamed Group'}
+        </span>
+      )
+    } else {
+      return (
+        <span className="room-display-name">
+          <span className="room-icon direct-icon">👤</span>
+          {room.name || 'Direct Message'}
+        </span>
+      )
+    }
   }
 
   if (loading) {
@@ -493,7 +481,16 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         <div className="rooms-sidebar">
           <div className="rooms-header">
             <h3>Chats</h3>
-            <button className="new-chat-btn" onClick={handleCreateRoom}>+</button>
+            <div className="header-buttons">
+              <button 
+                className="search-user-btn" 
+                onClick={() => setShowUserSearch(true)}
+                title="搜尋用戶開始聊天"
+              >
+                👤
+              </button>
+              <button className="new-chat-btn" onClick={handleCreateRoom}>👥</button>
+            </div>
           </div>
           
           {error && <div className="error-message">{error}</div>}
@@ -510,7 +507,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                   onClick={() => selectRoom(room)}
                 >
                   <div className="room-header">
-                    <div className="room-name">{room.name || 'Unnamed Room'}</div>
+                    <div className="room-name">{getRoomDisplayName(room)}</div>
                     <div className="room-badges">
                       {/*<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>*/}
                       {room.unreadCount > 0 && (
@@ -525,6 +522,11 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                       <span className="time">
                         {new Date(room.Messages[0].createdAt).toLocaleTimeString()}
                       </span>
+                    </div>
+                  )}
+                  {(!room.Messages || room.Messages.length === 0) && (
+                    <div className="last-message">
+                      <span className="content no-message">(No messages)</span>
                     </div>
                   )}
                 </div>
@@ -605,6 +607,12 @@ const Chat = ({ onLogout, onAuthExpired }) => {
           room={selectedRoom}
           onClose={() => setShowInviteModal(false)}
           onInviteSuccess={handleInviteSuccess}
+        />
+      )}
+      {showUserSearch && (
+        <UserSearch
+          onStartChat={handleStartDirectChat}
+          onClose={() => setShowUserSearch(false)}
         />
       )}
     </div>

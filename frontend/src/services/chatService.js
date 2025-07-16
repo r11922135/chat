@@ -112,10 +112,21 @@ const markRoomAsRead = async (roomId) => {
   return response.data
 }
 
+// 創建一對一聊天室
+const createDirectRoom = async (targetUserId) => {
+  const config = {
+    headers: getAuthHeaders()
+  }
+  
+  const response = await axios.post(`${baseURL}/rooms/direct`, { targetUserId }, config)
+  return response.data
+}
+
 export default {
   getUserRooms,
   getRooms,
   createRoom,
+  createDirectRoom, // 🆕 新增這個方法
   getRoomMessages,
   sendMessage,
   searchUsers,
