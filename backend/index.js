@@ -45,17 +45,75 @@ app.use(express.json()); // 可以解析JSON如果header是application/json
 // 🎯 提供靜態文件（前端 build 檔案）
 app.use(express.static(path.join(__dirname, 'dist')));
 
+io.use(async (socket, next) => {
+  console.log('🔥 Socket 中間件開始執行')
+  console.log('🔥 Socket ID:', socket.id)
+  
+  try {
+    const token = socket.handshake.auth.token
+    console.log('🔑 收到的 token:', token ? `${token.substring(0, 20)}...` : 'null')
+    
+    if (!token) {
+      console.log('❌ 沒有提供 token')
+      return next(new Error('No token provided'))
+    }
+    
+    // 🔐 解析 token 獲取 userId
+    console.log('🔍 使用的 JWT_SECRET:', process.env.JWT_SECRET ? '***已設定***' : '未設定')
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    console.log('✅ Token 解析成功:', decoded)
+    
+    const userId = decoded.userId
+    console.log('👤 解析出的 userId:', userId)
+    
+    // 🔍 查詢資料庫獲取用戶資訊
+    const user = await User.findByPk(userId)
+    console.log('👤 資料庫查詢用戶結果:', user ? `${user.username} (${user.id})` : 'null')
+    
+    if (!user) {
+      console.log('❌ 用戶不存在:', userId)
+      return next(new Error('User not found'))
+    }
+    
+    // 🏠 查詢用戶的聊天室
+    const userRooms = await RoomUser.findAll({
+      where: { userId: userId }
+    })
+    console.log('🏠 用戶聊天室查詢結果:', userRooms.length, '個房間')
+    
+    // 📝 把資訊存到 socket 上
+    socket.userId = userId
+    socket.username = user.username
+    socket.roomIds = userRooms.map(ru => ru.roomId)
+    
+    console.log(`✅ 用戶認證成功: ${user.username} (${userId})`)
+    console.log(`🏠 用戶房間: [${socket.roomIds.join(', ')}]`)
+    
+    next()
+  } catch (err) {
+    console.error('❌ Socket 認證失敗:', err.name, err.message)
+    console.error('❌ 完整錯誤:', err)
+    next(new Error('認證失敗: ' + err.message))
+  }
+})
+
 // Socket.IO 連接處理
 io.on('connection', (socket) => {
   console.log('用戶連接:', socket.id);
+  // 🚀 自動加入所有房間
+  for (const roomId of socket.roomIds) {
+    socket.join(roomId.toString())
+  }
+  socket.emit('auto-joined-rooms', { roomIds: socket.roomIds })
 
   // 用戶身份註冊
-  socket.on('register-user', (data) => {
+  /*socket.on('register-user', (data) => {
     if (data.userId) {
       socket.userId = data.userId;
       console.log(`Socket ${socket.id} 註冊用戶 ${data.userId}`);
     }
-  });
+  });*/
   
   // 用戶加入聊天室
   socket.on('join-room', (roomId) => {
@@ -559,6 +617,35 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
     });
     
     console.log('新聊天室創建成功:', newRoom.id);
+
+    // 🆕 立即將在線用戶加入 Socket 房間
+    const roomIdStr = newRoom.id.toString();
+    let joinedCount = 0;
+    
+    io.sockets.sockets.forEach((socket) => {
+      // 檢查是否為聊天室成員且在線
+      if (socket.userId && [currentUserId, targetUserId].includes(socket.userId)) {
+        socket.join(roomIdStr);
+        joinedCount++;
+        console.log(`✅ 用戶 ${socket.userId} 已立即加入新聊天室 ${newRoom.id}`);
+        
+        // 🆕 通知客戶端有新聊天室
+        socket.emit('new-room-created', {
+          room: {
+            id: newRoom.id,
+            name: newRoom.name,
+            isGroup: newRoom.isGroup,
+            createdAt: newRoom.createdAt,
+            updatedAt: newRoom.updatedAt,
+            unreadCount: 0,
+            lastReadAt: null,
+            Messages: []
+          }
+        });
+      }
+    });
+    
+    console.log(`${joinedCount} 位在線用戶已加入新聊天室 Socket 房間`);
     
     res.status(201).json({
       id: newRoom.id,

@@ -30,8 +30,15 @@ class SocketService {
       const socketURL = this.getSocketURL()
       console.log('🔌 Socket 連接到:', socketURL)
       
+      // 🆕 只加這一行：傳遞 token 給後端
+      const token = localStorage.getItem('chatToken')
+      
       this.socket = io(socketURL, {
-        autoConnect: true //建立socket連接時自動連接
+        autoConnect: true,
+        // 🆕 只加這個配置
+        auth: {
+          token: token
+        }
       })
 
       this.socket.on('connect', () => {
@@ -47,6 +54,11 @@ class SocketService {
         }
       })
 
+      // 🆕 只加這個監聽器
+      this.socket.on('auto-joined-rooms', (data) => {
+        console.log('🏠 後端已自動加入房間:', data.roomIds)
+      })
+      
       this.socket.on('disconnect', () => {
         console.log('Socket 連接斷開')
       })
@@ -133,6 +145,19 @@ class SocketService {
     const index = this.messageCallbacks.indexOf(callback)
     if (index > -1) {
       this.messageCallbacks.splice(index, 1)
+    }
+  }
+
+  // 在 socketService 中添加新聊天室監聽
+  setOnNewRoomCallback(callback) {
+    if (this.socket) {
+      this.socket.on('new-room-created', callback);
+    }
+  }
+
+  removeNewRoomCallback(callback) {
+    if (this.socket) {
+      this.socket.off('new-room-created', callback);
     }
   }
 

@@ -33,7 +33,7 @@ const UserSearch = ({ onStartChat, onClose }) => {
     try {
       setLoading(true)
       const room = await chatService.createDirectRoom(user.id)
-      onStartChat(room, user)
+      onStartChat(room)
       onClose()
     } catch (err) {
       console.error('Create direct room error:', err)

@@ -32,7 +32,7 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000
     },
-    logging: process.env.NODE_ENV === 'production' ? false : console.log
+    logging: false
   }
 );
 

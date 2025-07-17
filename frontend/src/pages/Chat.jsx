@@ -28,12 +28,33 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       return
     }
     
-    // 🎯 正確的執行順序：
-    // 1. 先載入房間資料並設置連接回調
-    // 2. 再建立 Socket 連接
+    // 🚀 直接在 useEffect 中處理，不需要額外函數
     const initializeChat = async () => {
-      await loadRoomsAndJoinAll()  // 確保房間載入完成且回調已設置
-      socketService.connect()      // 然後才連接 Socket
+      try {
+        setLoading(true)
+        
+        // 1. 載入房間資料 - 只是為了顯示聊天室列表
+        const roomsData = await chatService.getUserRooms()
+        setRooms(roomsData)
+        
+        // 2. 連接 Socket - 後端中間件會自動處理房間加入
+        socketService.connect()
+        
+        setError('')
+      } catch (err) {
+        console.error('Initialize chat error:', err)
+        
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem('chatToken')
+          localStorage.removeItem('chatUsername')
+          localStorage.removeItem('chatUserId')
+          onAuthExpired()
+        } else {
+          setError('Failed to initialize chat')
+        }
+      } finally {
+        setLoading(false)
+      }
     }
     
     initializeChat()
@@ -46,6 +67,28 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 【為什麼要監聽 token 變化？】
   // 當用戶重新登入時，會有新的 token，我們需要重新初始化整個聊天環境
   // 當用戶登出時，token 會被清空，我們需要斷開連接並清理資源
+
+  // 在 Chat.jsx 中監聽新聊天室
+  useEffect(() => {
+    const handleNewRoom = (data) => {
+      console.log('收到新聊天室:', data.room);
+      
+      // 將新聊天室加入列表
+      setRooms(prev => {
+        const exists = prev.find(room => room.id === data.room.id);
+        if (!exists) {
+          return [data.room, ...prev]; // 新聊天室放在最上面
+        }
+        return prev;
+      });
+    };
+
+    socketService.setOnNewRoomCallback(handleNewRoom);
+
+    return () => {
+      socketService.removeNewRoomCallback(handleNewRoom);
+    };
+  }, []);
 
   // 【核心功能】載入用戶的聊天室
   // 這個函數負責：
@@ -62,11 +105,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       const roomsData = await chatService.getUserRooms()
       setRooms(roomsData)
       
-      // 🆕 設置連接回調，連接成功後自動加入聊天室
+      // 🆕 簡化：不再手動加入房間，後端會自動處理
       socketService.setOnConnectedCallback(() => {
-        const roomIds = roomsData.map(room => room.id)
-        socketService.joinRooms(roomIds)
-        console.log('已加入聊天室:', roomIds)
+        console.log('✅ Socket 已連接，後端會自動加入房間')
+        // 移除原本的 joinRooms 調用
       })
       
       setError('')
@@ -102,7 +144,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 2. 創建新聊天室後
   // 3. 未讀訊息數量更新後
   // 4. 聊天室列表任何其他變化後
-  useEffect(() => {
+  /*useEffect(() => {
     if (rooms && rooms.length > 0) {
       // 使用最新的 rooms 狀態設置連接回調
       socketService.setOnConnectedCallback(() => {
@@ -111,7 +153,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         console.log('已加入聊天室（使用最新的 rooms 狀態）:', roomIds)
       })
     }
-  }, [rooms]) // 依賴項：當 rooms 狀態改變時重新設置回調
+  }, [rooms]) // 依賴項：當 rooms 狀態改變時重新設置回調*/
   
   // 【自動滾动功能】讓聊天視窗始終顯示最新訊息
   const scrollToBottom = () => {
@@ -415,16 +457,11 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   }
 
   // 新增處理開始一對一聊天的函數
-  const handleStartDirectChat = async (room, targetUser) => {
+  const handleStartDirectChat = async (room) => {
     try {
-      // 加入新聊天室到 Socket
-      if (socketService.getSocket()?.connected) {
-        socketService.joinRoom(room.id)
-        console.log(`加入一對一聊天室: ${room.id}`)
-      }
-      
       // 重新載入聊天室列表
-      await loadRoomsAndJoinAll()
+      const roomsData = await chatService.getUserRooms()
+      setRooms(roomsData)
       
       // 選擇新建的聊天室
       setSelectedRoom(room)
