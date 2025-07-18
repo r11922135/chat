@@ -23,6 +23,8 @@ const Room = require('./models/Room');
 const RoomUser = require('./models/RoomUser');
 const Message = require('./models/Message');
 
+const userSocketMap = new Map();
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
@@ -106,14 +108,6 @@ io.on('connection', (socket) => {
     socket.join(roomId.toString())
   }
   socket.emit('auto-joined-rooms', { roomIds: socket.roomIds })
-
-  // 用戶身份註冊
-  /*socket.on('register-user', (data) => {
-    if (data.userId) {
-      socket.userId = data.userId;
-      console.log(`Socket ${socket.id} 註冊用戶 ${data.userId}`);
-    }
-  });*/
   
   // 用戶加入聊天室
   socket.on('join-room', (roomId) => {
@@ -504,27 +498,15 @@ app.post('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, asyn
 
 // 建立聊天室
 app.post('/api/rooms', authenticateToken, async (req, res) => {
-  const { name, isGroup, userIds } = req.body; // userIds: [id1, id2, ...]
+  const { name, isGroup } = req.body; // 移除 userIds 參數
   
   try {
     // 建立聊天室
     const room = await Room.create({ name, isGroup });
     
-    // 將建立者加入聊天室
+    // 只將建立者加入聊天室
     const creatorId = req.user.userId;
-    const allUserIds = [creatorId]; // 確保建立者在聊天室內
-    
-    // 如果有指定其他用戶，也加入聊天室
-    if (Array.isArray(userIds)) {
-      userIds.forEach(id => {
-        if (id !== creatorId && !allUserIds.includes(id)) {
-          allUserIds.push(id);
-        }
-      });
-    }
-    
-    // 將所有用戶加入聊天室
-    await room.setUsers(allUserIds);
+    await room.setUsers([creatorId]);
     
     // 返回聊天室資訊，格式與 GET /api/rooms 一致
     const roomData = {
@@ -537,6 +519,23 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
       lastReadAt: null,         // 新建立的聊天室最後讀取時間為 null
       Messages: []              // 新建立的聊天室沒有訊息
     };
+
+    // 🆕 立即將建立者加入 Socket 房間並通知客戶端
+    const roomIdStr = room.id.toString();
+    let joinedCount = 0;
+    
+    io.sockets.sockets.forEach((socket) => {
+      if (socket.userId && socket.userId === creatorId) {
+        socket.join(roomIdStr);
+        joinedCount++;
+        console.log(`✅ 建立者 ${socket.userId} 已立即加入新聊天室 ${room.id}`);
+        
+        // 通知客戶端有新聊天室
+        socket.emit('new-room-created', { room: roomData });
+      }
+    });
+    
+    console.log(`建立者已加入新聊天室 Socket 房間`);
     
     res.status(201).json(roomData);
   } catch (err) {
@@ -722,6 +721,34 @@ app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
     const room = await Room.findByPk(roomId, {
       include: [{ model: User, attributes: ['id', 'username'] }]
     });
+
+    // 🆕 讓被邀請的在線用戶加入 Socket 房間並通知有新聊天室
+    const roomIdStr = roomId.toString();
+    let joinedCount = 0;
+    
+    io.sockets.sockets.forEach((socket) => {
+      if (socket.userId && newMemberIds.includes(socket.userId)) {
+        socket.join(roomIdStr);
+        joinedCount++;
+        console.log(`✅ 被邀請用戶 ${socket.userId} 已加入聊天室 ${roomId}`);
+        
+        // 通知被邀請用戶有新聊天室
+        socket.emit('new-room-created', {
+          room: {
+            id: room.id,
+            name: room.name,
+            isGroup: room.isGroup,
+            createdAt: room.createdAt,
+            updatedAt: room.updatedAt,
+            unreadCount: 0,
+            lastReadAt: null,
+            Messages: []
+          }
+        });
+      }
+    });
+    
+    console.log(`${joinedCount} 位被邀請的在線用戶已加入聊天室 Socket 房間`);
 
     // 透過 Socket.IO 通知聊天室成員
     invitedUsers.forEach(user => {
