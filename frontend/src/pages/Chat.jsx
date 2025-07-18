@@ -447,6 +447,9 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   // 新增獲取聊天室顯示名稱的函數
   const getRoomDisplayName = (room) => {
+    console.log('getRoomDisplayName - room:', room)
+    console.log('getRoomDisplayName - currentUser:', currentUser)
+    console.log('getRoomDisplayName - room.members:', room.members)
     if (room.isGroup) {
       return (
         <span className="room-display-name">
@@ -455,10 +458,14 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         </span>
       )
     } else {
+      // 🆕 一對一聊天室：顯示對方的名字
+      const otherMember = room.members?.find(member => member.username !== currentUser)
+      const displayName = otherMember?.username || room.name || 'Direct Message'
+      
       return (
         <span className="room-display-name">
           <span className="room-icon direct-icon">👤</span>
-          {room.name || 'Direct Message'}
+          {displayName}
         </span>
       )
     }

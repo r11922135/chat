@@ -381,67 +381,47 @@ app.get('/api/rooms', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // 查詢用戶的 RoomUser 關係，包含 lastReadAt 資訊
-    const roomUsers = await RoomUser.findAll({
-      where: { userId },
-      include: [
-        {
-          model: Room,
-          include: [
-            {
-              model: Message,
-              limit: 1,
-              order: [['createdAt', 'DESC']],
-              required: false, // LEFT JOIN，即使沒有訊息也要顯示聊天室
-              include: [{ model: User, attributes: ['username'] }]
-            }
-          ]
-        }
-      ]
+    const rooms = await sequelize.query(`
+      SELECT r.*, ru."lastReadAt",
+             (SELECT COUNT(*) FROM "Messages" m WHERE m."roomId" = r."id" AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) as "unreadCount"
+      FROM "Rooms" r
+      JOIN "RoomUsers" ru ON r."id" = ru."roomId"
+      WHERE ru."userId" = :userId
+      ORDER BY r."updatedAt" DESC
+    `, {
+      replacements: { userId: userId },
+      type: sequelize.QueryTypes.SELECT
     });
-    
-    if (roomUsers.length === 0) {
-      return res.json([]);
-    }
-    
-    // 為每個聊天室計算未讀訊息數量
-    const roomsWithUnreadCount = await Promise.all(
-      roomUsers.map(async (roomUser) => {
-        const room = roomUser.Room;
-        const lastReadAt = roomUser.lastReadAt || new Date(0); // 如果沒讀過，從最開始算
-        
-        // 計算未讀訊息數量
-        const unreadCount = await Message.count({
-          where: {
-            roomId: room.id,
-            createdAt: {
-              [sequelize.Sequelize.Op.gt]: lastReadAt
-            }
-          }
-        });
-        
-        // 回傳格式包含未讀數量和最後讀取時間
-        return {
-          id: room.id,
-          name: room.name,
-          isGroup: room.isGroup,
-          createdAt: room.createdAt,
-          updatedAt: room.updatedAt,
-          unreadCount,           // 未讀訊息數量
-          lastReadAt: roomUser.lastReadAt,  // 最後讀取時間
-          Messages: room.Messages  // 保持原有的最新訊息
-        };
-      })
-    );
-    
-    // 按照最新訊息時間排序（有訊息的在前面）
-    roomsWithUnreadCount.sort((a, b) => {
-      const aTime = a.Messages?.[0]?.createdAt || a.createdAt;
-      const bTime = b.Messages?.[0]?.createdAt || b.createdAt;
-      return new Date(bTime) - new Date(aTime);
-    });
-    
-    res.json(roomsWithUnreadCount);
+
+    // 🆕 為每個聊天室查詢成員資訊
+    const roomsWithMembers = await Promise.all(rooms.map(async (room) => {
+      // 查詢最新訊息
+      const latestMessage = await Message.findOne({
+        where: { roomId: room.id },
+        include: [{ model: User, attributes: ['id', 'username'] }],
+        order: [['createdAt', 'DESC']]
+      });
+
+      // 🆕 查詢聊天室成員
+      const members = await sequelize.query(`
+        SELECT u."id", u."username", ru."createdAt" as "joinedAt"
+        FROM "Users" u
+        JOIN "RoomUsers" ru ON u."id" = ru."userId"
+        WHERE ru."roomId" = :roomId
+        ORDER BY ru."createdAt" ASC
+      `, {
+        replacements: { roomId: room.id },
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      return {
+        ...room,
+        Messages: latestMessage ? [latestMessage] : [],
+        members: members // 🆕 新增成員列表
+      };
+    }));
+
+    res.json(roomsWithMembers);
   } catch (err) {
     console.error('Get rooms error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -498,29 +478,36 @@ app.post('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, asyn
 
 // 建立聊天室
 app.post('/api/rooms', authenticateToken, async (req, res) => {
-  const { name, isGroup } = req.body; // 移除 userIds 參數
+  const { name, isGroup } = req.body;
   
   try {
-    // 建立聊天室
     const room = await Room.create({ name, isGroup });
     
-    // 只將建立者加入聊天室
     const creatorId = req.user.userId;
     await room.setUsers([creatorId]);
     
-    // 返回聊天室資訊，格式與 GET /api/rooms 一致
+    // 🆕 查詢建立者資訊作為成員
+    const creator = await User.findByPk(creatorId, {
+      attributes: ['id', 'username']
+    });
+
     const roomData = {
       id: room.id,
       name: room.name,
       isGroup: room.isGroup,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
-      unreadCount: 0,           // 新建立的聊天室未讀數為 0
-      lastReadAt: null,         // 新建立的聊天室最後讀取時間為 null
-      Messages: []              // 新建立的聊天室沒有訊息
+      unreadCount: 0,
+      lastReadAt: null,
+      Messages: [],
+      members: [{ // 🆕 新增成員列表
+        id: creator.id,
+        username: creator.username,
+        joinedAt: new Date()
+      }]
     };
 
-    // 🆕 立即將建立者加入 Socket 房間並通知客戶端
+    // Socket 房間加入邏輯保持不變
     const roomIdStr = room.id.toString();
     let joinedCount = 0;
     
@@ -530,7 +517,6 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
         joinedCount++;
         console.log(`✅ 建立者 ${socket.userId} 已立即加入新聊天室 ${room.id}`);
         
-        // 通知客戶端有新聊天室
         socket.emit('new-room-created', { room: roomData });
       }
     });
@@ -570,10 +556,21 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
       type: sequelize.QueryTypes.SELECT
     });
     
-    // 如果找到現有聊天室，返回它
     if (existingRooms.length > 0) {
       const room = existingRooms[0];
       console.log('找到現有一對一聊天室:', room.id);
+      
+      // 🆕 查詢現有聊天室的成員
+      const members = await sequelize.query(`
+        SELECT u."id", u."username", ru."createdAt" as "joinedAt"
+        FROM "Users" u
+        JOIN "RoomUsers" ru ON u."id" = ru."userId"
+        WHERE ru."roomId" = :roomId
+        ORDER BY ru."createdAt" ASC
+      `, {
+        replacements: { roomId: room.id },
+        type: sequelize.QueryTypes.SELECT
+      });
       
       return res.json({
         id: room.id,
@@ -583,13 +580,13 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
         updatedAt: room.updatedAt,
         unreadCount: 0,
         lastReadAt: room.lastReadAt,
-        Messages: []
+        Messages: [],
+        members: members // 🆕 新增成員列表
       });
     }
     
     console.log('未找到現有聊天室，創建新的一對一聊天室');
     
-    // 建立新的一對一聊天室
     const newRooms = await sequelize.query(`
       INSERT INTO "Rooms" (name, "isGroup", "createdAt", "updatedAt")
       VALUES (NULL, false, NOW(), NOW())
@@ -600,7 +597,6 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
     
     const newRoom = newRooms[0][0];
     
-    // 加入兩個用戶
     await sequelize.query(`
       INSERT INTO "RoomUsers" ("roomId", "userId", "createdAt", "updatedAt")
       VALUES 
@@ -616,37 +612,20 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
     });
     
     console.log('新聊天室創建成功:', newRoom.id);
-
-    // 🆕 立即將在線用戶加入 Socket 房間
-    const roomIdStr = newRoom.id.toString();
-    let joinedCount = 0;
     
-    io.sockets.sockets.forEach((socket) => {
-      // 檢查是否為聊天室成員且在線
-      if (socket.userId && [currentUserId, targetUserId].includes(socket.userId)) {
-        socket.join(roomIdStr);
-        joinedCount++;
-        console.log(`✅ 用戶 ${socket.userId} 已立即加入新聊天室 ${newRoom.id}`);
-        
-        // 🆕 通知客戶端有新聊天室
-        socket.emit('new-room-created', {
-          room: {
-            id: newRoom.id,
-            name: newRoom.name,
-            isGroup: newRoom.isGroup,
-            createdAt: newRoom.createdAt,
-            updatedAt: newRoom.updatedAt,
-            unreadCount: 0,
-            lastReadAt: null,
-            Messages: []
-          }
-        });
-      }
+    // 🆕 查詢兩個用戶的資訊作為成員
+    const members = await sequelize.query(`
+      SELECT u."id", u."username", ru."createdAt" as "joinedAt"
+      FROM "Users" u
+      JOIN "RoomUsers" ru ON u."id" = ru."userId"
+      WHERE ru."roomId" = :roomId
+      ORDER BY ru."createdAt" ASC
+    `, {
+      replacements: { roomId: newRoom.id },
+      type: sequelize.QueryTypes.SELECT
     });
     
-    console.log(`${joinedCount} 位在線用戶已加入新聊天室 Socket 房間`);
-    
-    res.status(201).json({
+    const roomData = {
       id: newRoom.id,
       name: newRoom.name,
       isGroup: newRoom.isGroup,
@@ -654,8 +633,27 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
       updatedAt: newRoom.updatedAt,
       unreadCount: 0,
       lastReadAt: null,
-      Messages: []
+      Messages: [],
+      members: members // 🆕 新增成員列表
+    };
+    
+    // Socket 房間加入邏輯保持不變
+    const roomIdStr = newRoom.id.toString();
+    let joinedCount = 0;
+    
+    io.sockets.sockets.forEach((socket) => {
+      if (socket.userId && [currentUserId, targetUserId].includes(socket.userId)) {
+        socket.join(roomIdStr);
+        joinedCount++;
+        console.log(`✅ 用戶 ${socket.userId} 已立即加入新聊天室 ${newRoom.id}`);
+        
+        socket.emit('new-room-created', { room: roomData });
+      }
     });
+    
+    console.log(`${joinedCount} 位在線用戶已加入新聊天室 Socket 房間`);
+    
+    res.status(201).json(roomData);
     
   } catch (err) {
     console.error('Create direct room error:', err);
@@ -665,64 +663,93 @@ app.post('/api/rooms/direct', authenticateToken, async (req, res) => {
 
 // 邀請用戶加入聊天室
 app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
-  const { userIds } = req.body; // 要邀請的用戶 ID 陣列
   const { roomId } = req.params;
-  const inviterId = req.user.userId;
-
+  const { userIds } = req.body;
+  const currentUserId = req.user.userId;
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ message: 'Invalid user IDs' });
+  }
+  
   try {
-    // 檢查邀請者是否為聊天室成員
-    const inviterMembership = await RoomUser.findOne({
-      where: { roomId, userId: inviterId }
+    // 檢查當前用戶是否在聊天室中
+    const roomUser = await RoomUser.findOne({
+      where: { roomId, userId: currentUserId }
     });
-
-    if (!inviterMembership) {
-      return res.status(403).json({ message: 'You are not a member of this room' });
+    
+    if (!roomUser) {
+      return res.status(403).json({ message: 'Access denied' });
     }
-
-    // 驗證要邀請的用戶 ID
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ message: 'User IDs are required' });
+    
+    // 檢查聊天室是否存在
+    const room = await Room.findByPk(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
     }
-
-    // 檢查用戶是否存在
-    const existingUsers = await User.findAll({
+    
+    // 檢查被邀請用戶是否存在
+    const users = await User.findAll({
       where: { id: userIds },
       attributes: ['id', 'username']
     });
-
-    if (existingUsers.length !== userIds.length) {
-      return res.status(400).json({ message: 'Some users do not exist' });
+    
+    if (users.length !== userIds.length) {
+      return res.status(400).json({ message: 'Some users not found' });
     }
-
-    // 檢查哪些用戶已經在聊天室中
-    const existingMembers = await RoomUser.findAll({
+    
+    // 過濾掉已經在聊天室中的用戶
+    const existingRoomUsers = await RoomUser.findAll({
       where: { roomId, userId: userIds }
     });
-
-    const existingMemberIds = existingMembers.map(member => member.userId);
-    const newMemberIds = userIds.filter(id => !existingMemberIds.includes(id));
-
+    
+    const existingUserIds = existingRoomUsers.map(ru => ru.userId);
+    const newMemberIds = userIds.filter(id => !existingUserIds.includes(id));
+    
     if (newMemberIds.length === 0) {
-      return res.status(400).json({ message: 'All users are already members of this room' });
+      return res.status(400).json({ message: 'All users are already in the room' });
     }
-
-    // 建立新的聊天室成員關係
-    const newMemberships = newMemberIds.map(userId => ({
-      roomId: parseInt(roomId),
-      userId
+    
+    // 將新用戶加入聊天室
+    const roomUsersToCreate = newMemberIds.map(userId => ({
+      roomId,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }));
-
-    await RoomUser.bulkCreate(newMemberships);
-
-    // 獲取被邀請的用戶資訊
-    const invitedUsers = existingUsers.filter(user => newMemberIds.includes(user.id));
-
-    // 通知聊天室內的所有用戶有新成員加入
-    const room = await Room.findByPk(roomId, {
-      include: [{ model: User, attributes: ['id', 'username'] }]
+    
+    await RoomUser.bulkCreate(roomUsersToCreate);
+    
+    // 🆕 查詢更新後的聊天室資訊（包含所有成員）
+    const updatedRoom = await Room.findByPk(roomId, {
+      include: [
+        {
+          model: User,
+          through: { attributes: ['createdAt'] },
+          attributes: ['id', 'username']
+        }
+      ]
     });
-
-    // 🆕 讓被邀請的在線用戶加入 Socket 房間並通知有新聊天室
+    
+    // 🆕 格式化成員資訊
+    const members = updatedRoom.Users.map(user => ({
+      id: user.id,
+      username: user.username,
+      joinedAt: user.RoomUser.createdAt
+    }));
+    
+    const roomData = {
+      id: updatedRoom.id,
+      name: updatedRoom.name,
+      isGroup: updatedRoom.isGroup,
+      createdAt: updatedRoom.createdAt,
+      updatedAt: updatedRoom.updatedAt,
+      unreadCount: 0,
+      lastReadAt: null,
+      Messages: [],
+      members: members // 🆕 新增成員列表
+    };
+    
+    // Socket 房間加入邏輯保持不變
     const roomIdStr = roomId.toString();
     let joinedCount = 0;
     
@@ -732,39 +759,17 @@ app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
         joinedCount++;
         console.log(`✅ 被邀請用戶 ${socket.userId} 已加入聊天室 ${roomId}`);
         
-        // 通知被邀請用戶有新聊天室
-        socket.emit('new-room-created', {
-          room: {
-            id: room.id,
-            name: room.name,
-            isGroup: room.isGroup,
-            createdAt: room.createdAt,
-            updatedAt: room.updatedAt,
-            unreadCount: 0,
-            lastReadAt: null,
-            Messages: []
-          }
-        });
+        socket.emit('new-room-created', { room: roomData });
       }
     });
     
-    console.log(`${joinedCount} 位被邀請的在線用戶已加入聊天室 Socket 房間`);
-
-    // 透過 Socket.IO 通知聊天室成員
-    invitedUsers.forEach(user => {
-      io.to(roomId).emit('user-joined', {
-        roomId,
-        user: { id: user.id, username: user.username },
-        invitedBy: req.user.username
-      });
+    console.log(`${joinedCount} 位被邀請用戶已加入聊天室 Socket 房間`);
+    
+    res.json({ 
+      message: 'Users invited successfully',
+      room: roomData // 🆕 返回包含成員資訊的聊天室資料
     });
-
-    res.status(200).json({
-      message: `Successfully invited ${invitedUsers.length} user(s)`,
-      invitedUsers,
-      room
-    });
-
+    
   } catch (err) {
     console.error('Invite users error:', err);
     res.status(500).json({ message: 'Server error' });
