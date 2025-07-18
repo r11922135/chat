@@ -519,7 +519,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
                   <div className="room-header">
                     <div className="room-name">{getRoomDisplayName(room)}</div>
                     <div className="room-badges">
-                      {/*<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>*/}
+                      {<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>}
                       {room.unreadCount > 0 && (
                         <div className="unread-badge">{room.unreadCount}</div>
                       )}
@@ -551,7 +551,12 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             <>
               <div className="chat-window-header">
                 <div className="room-info">
-                  <h3>{selectedRoom.name || 'Unnamed Room'}</h3>
+                  <h3>
+                    {selectedRoom.isGroup 
+                      ? (selectedRoom.name || 'Unnamed Group')
+                      : (selectedRoom.members?.find(member => member.username !== currentUser)?.username || selectedRoom.name || 'Direct Message')
+                    }
+                  </h3>
                   {/*<span className="room-type-badge">
                     {selectedRoom.isGroup ? 'Group Chat' : 'Direct Message'}
                   </span>*/}
