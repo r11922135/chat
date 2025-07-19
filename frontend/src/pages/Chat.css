@@ -34,16 +34,14 @@
 @media (max-width: 768px) {
   .chat-header {
     padding: 0.8rem 1rem;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
+    /* 移除 fixed positioning，回到正常文檔流 */
+    position: relative;
+    z-index: 100;
   }
   
   .chat-main {
-    margin-top: 70px; /* 為固定的頂部導航留空間 */
-    height: calc(100vh - 70px);
+    /* 移除 margin-top，因為不再需要為固定頂部留空間 */
+    height: calc(100vh - 60px); /* 調整高度計算 */
   }
 }
 
@@ -516,12 +514,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
+  min-width: 48px;
+  min-height: 48px;
+  /* 手機版優化：確保按鈕不會被遮蓋 */
+  position: relative;
+  z-index: 100;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
 }
 
-.chat-window.mobile .back-btn:hover {
+.chat-window.mobile .back-btn:hover,
+.chat-window.mobile .back-btn:active {
   background-color: rgba(74, 144, 226, 0.1);
-  border-radius: 50%;
 }
 
 /* 響應式設計 - 只在非手機條件渲染時生效 */
@@ -545,7 +549,7 @@
   }
   
   .chat-header {
-    padding: 1rem;
+    padding: 0.8rem 1rem;
   }
   
   .chat-header h1 {
@@ -554,6 +558,32 @@
   
   .message-form {
     padding: 1rem;
+  }
+  
+  /* 手機版按鈕區域優化 */
+  .rooms-header {
+    padding: 1rem;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .header-buttons {
+    position: relative;
+    z-index: 20;
+  }
+  
+  /* 手機版返回按鈕優化 */
+  .chat-window-header {
+    padding: 1rem;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .back-btn {
+    position: relative;
+    z-index: 20;
+    min-width: 48px !important;
+    min-height: 48px !important;
   }
 }
 
@@ -591,6 +621,18 @@
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
   transition: all 0.2s ease;
   position: relative;
+  z-index: 50;
+}
+
+/* 手機版按鈕優化 */
+@media (max-width: 768px) {
+  .search-user-btn,
+  .new-chat-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    z-index: 100;
+  }
 }
 
 /* 搜尋用戶按鈕 (一對一私訊) */
