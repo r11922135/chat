@@ -99,6 +99,8 @@
 .rooms-list {
   flex: 1;
   overflow-y: auto;
+  /* 確保在手機模式下填滿可用空間 */
+  min-height: 0;
 }
 
 .room-item {
@@ -218,6 +220,12 @@
   text-align: center;
   color: #666;
   font-style: italic;
+  /* 在手機模式下居中顯示 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
 }
 
 /* 右側聊天窗口 */
@@ -421,18 +429,54 @@
   color: #666;
 }
 
-/* 響應式設計 */
+/* 手機模式專用樣式 */
+.rooms-sidebar.mobile {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-window.mobile {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-window.mobile .back-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #4a90e2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+}
+
+.chat-window.mobile .back-btn:hover {
+  background-color: rgba(74, 144, 226, 0.1);
+  border-radius: 50%;
+}
+
+/* 響應式設計 - 只在非手機條件渲染時生效 */
 @media (max-width: 768px) {
   .chat-main {
     flex-direction: column;
   }
   
-  .rooms-sidebar {
+  /* 注意：這些樣式只會影響桌面模式在小螢幕的顯示，不會影響手機模式的條件渲染 */
+  .rooms-sidebar:not(.mobile) {
     width: 100%;
     height: 40vh;
   }
   
-  .chat-window {
+  .chat-window:not(.mobile) {
     height: 60vh;
   }
   
