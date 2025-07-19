@@ -34,6 +34,6 @@ jobs:
             cd ../frontend
             npm install
             npm run build
-            cp -r dist ../backend/dist
+            cp -r dist/* ../backend/dist/
             pm2 restart chat-app
             sudo systemctl restart nginx
