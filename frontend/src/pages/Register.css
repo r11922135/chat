@@ -52,6 +52,36 @@
   border-radius: 4px;
   font-size: 1rem;
   box-sizing: border-box;
+  /* 修正手機版文字顯示問題 */
+  color: #333333 !important;
+  background-color: #ffffff !important;
+  font-size: 16px; /* 防止手機瀏覽器縮放 */
+  min-height: 44px; /* 確保觸控區域足夠大 */
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-text-fill-color: #333333 !important;
+}
+
+.register-input:focus {
+  border-color: #4a90e2;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+/* Placeholder 樣式 */
+.register-input::placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
+}
+
+.register-input::-webkit-input-placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
+}
+
+.register-input::-moz-placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
 }
 
 /* 提交按鈕 */

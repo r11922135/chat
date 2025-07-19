@@ -10,6 +10,9 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  /* 手機版修正：確保容器始終占滿視窗 */
+  min-height: 100vh;
+  max-height: 100vh;
 }
 
 /* 頂部導航 */
@@ -21,6 +24,27 @@
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  /* 手機版修正：確保頂部導航始終可見 */
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+/* 手機版專用頂部導航優化 */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 0.8rem 1rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+  
+  .chat-main {
+    margin-top: 70px; /* 為固定的頂部導航留空間 */
+    height: calc(100vh - 70px);
+  }
 }
 
 .chat-header h1 {
@@ -54,6 +78,9 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  /* 手機版修正：確保主要內容不會覆蓋頂部導航 */
+  position: relative;
+  min-height: 0; /* 讓 flexbox 正確計算高度 */
 }
 
 /* 左側聊天室列表 */
@@ -461,6 +488,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* 手機版修正：確保邊界不會造成布局問題 */
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .chat-window.mobile {
@@ -469,6 +500,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* 手機版修正：確保邊界不會造成布局問題 */
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .chat-window.mobile .back-btn {
