@@ -464,6 +464,17 @@ app.post('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, asyn
       content: content.trim(),
     });
     
+    // 🆕 更新聊天室的 updatedAt 時間，用於排序
+    console.log(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (發送訊息)`);
+    await sequelize.query(
+      'UPDATE "Rooms" SET "updatedAt" = NOW() WHERE "id" = :roomId',
+      {
+        replacements: { roomId },
+        type: sequelize.QueryTypes.UPDATE
+      }
+    );
+    console.log(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (發送訊息)`);
+    
     // 返回完整的訊息資訊，包含發送者資訊
     const messageWithUser = await Message.findByPk(message.id, {
       include: [{ model: User, attributes: ['id', 'username'] }]
@@ -718,6 +729,17 @@ app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
     }));
     
     await RoomUser.bulkCreate(roomUsersToCreate);
+    
+    // 🆕 更新聊天室的 updatedAt 時間，用於排序
+    console.log(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (邀請用戶)`);
+    await sequelize.query(
+      'UPDATE "Rooms" SET "updatedAt" = NOW() WHERE "id" = :roomId',
+      {
+        replacements: { roomId },
+        type: sequelize.QueryTypes.UPDATE
+      }
+    );
+    console.log(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (邀請用戶)`);
     
     // 🆕 查詢更新後的聊天室資訊（包含所有成員）
     const updatedRoom = await Room.findByPk(roomId, {
