@@ -21,6 +21,40 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  /* 手機版文字修正 */
+  color: #333333 !important;
+}
+
+/* 確保所有文字元素在手機版都能正確顯示 */
+.user-search-modal * {
+  color: inherit !important;
+}
+
+.user-search-modal h3,
+.user-search-modal h2,
+.user-search-modal p,
+.user-search-modal span,
+.user-search-modal div {
+  color: #333333 !important;
+}
+
+/* 輸入框特別處理 */
+.user-search-modal input[type="text"] {
+  color: #333333 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #ddd !important;
+  padding: 0.5rem !important;
+  border-radius: 4px !important;
+  font-size: 16px !important; /* 防止手機瀏覽器縮放 */
+  min-height: 44px !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-text-fill-color: #333333 !important;
+}
+
+.user-search-modal input[type="text"]::placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
 }
 
 .user-search-header {

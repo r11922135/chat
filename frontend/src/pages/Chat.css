@@ -9,10 +9,11 @@
   padding: 0;
   box-sizing: border-box;
   position: relative;
-  overflow: hidden;
+  /* 手機版修正：允許下拉刷新 */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
   /* 手機版修正：確保容器始終占滿視窗 */
   min-height: 100vh;
-  max-height: 100vh;
 }
 
 /* 頂部導航 */
@@ -34,14 +35,16 @@
 @media (max-width: 768px) {
   .chat-header {
     padding: 0.8rem 1rem;
-    /* 移除 fixed positioning，回到正常文檔流 */
-    position: relative;
-    z-index: 100;
+    position: sticky; /* 改為 sticky 確保始終可見 */
+    top: 0;
+    z-index: 1000;
+    background-color: #4a90e2; /* 確保背景色 */
   }
   
   .chat-main {
-    /* 移除 margin-top，因為不再需要為固定頂部留空間 */
-    height: calc(100vh - 60px); /* 調整高度計算 */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 

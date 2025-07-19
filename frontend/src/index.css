@@ -11,7 +11,9 @@ html, body {
   padding: 0;
   height: 100%;
   width: 100%;
-  overflow: hidden; /* 防止全域滾動 */
+  /* 手機版修正：允許下拉刷新 */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   /*font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;*/
   font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
 }
