@@ -224,7 +224,7 @@
   align-items: center;
   justify-content: center;
   animation: pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+  /*box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);*/
 }
 
 /* 閃爍動畫 */
