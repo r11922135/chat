@@ -383,7 +383,7 @@ app.get('/api/rooms', authenticateToken, async (req, res) => {
     
     const rooms = await sequelize.query(`
       SELECT r.*, ru."lastReadAt",
-             (SELECT COUNT(*) FROM "Messages" m WHERE m."roomId" = r."id" AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) as "unreadCount"
+             CAST((SELECT COUNT(*) FROM "Messages" m WHERE m."roomId" = r."id" AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) AS INTEGER) as "unreadCount"
       FROM "Rooms" r
       JOIN "RoomUsers" ru ON r."id" = ru."roomId"
       WHERE ru."userId" = :userId

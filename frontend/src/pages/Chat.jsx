@@ -102,26 +102,15 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 當用戶重新登入時，會有新的 token，我們需要重新初始化整個聊天環境
   // 當用戶登出時，token 會被清空，我們需要斷開連接並清理資源
 
-  // 【核心功能】載入用戶的聊天室
-  // 這個函數負責：
-  // 1. 從後端 API 獲取用戶的聊天室列表
-  // 2. 更新 rooms 狀態（觸發 useEffect 重新設置 Socket 回調）
-  // 3. 處理載入過程中的錯誤情況
-  // 
-  // 注意：Socket 房間的加入由 rooms 狀態變化觸發的 useEffect 處理，
-  // 而不是在這個函數中直接處理，這樣可以確保使用最新的 rooms 狀態
-  const loadRoomsAndJoinAll = async () => {
+  // 【簡化功能】載入用戶的聊天室列表
+  // 這個函數只負責載入聊天室資料，不再處理 Socket 房間加入
+  // Socket 房間的加入由後端中間件自動處理
+  const loadUserRooms = async () => {
     try {
       setLoading(true)
       
       const roomsData = await chatService.getUserRooms()
       setRooms(roomsData)
-      
-      // 🆕 簡化：不再手動加入房間，後端會自動處理
-      socketService.setOnConnectedCallback(() => {
-        console.log('✅ Socket 已連接，後端會自動加入房間')
-        // 移除原本的 joinRooms 調用
-      })
       
       setError('')
     } catch (err) {
@@ -215,7 +204,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               if (room.id === newMessage.roomId) {
                 return {
                   ...room,
-                  unreadCount: (room.unreadCount || 0) + 1,
+                  unreadCount: Number(room.unreadCount || 0) + 1,
                   Messages: [{
                     id: newMessage.id,
                     content: newMessage.content,
@@ -451,8 +440,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const handleStartDirectChat = async (room) => {
     try {
       // 重新載入聊天室列表
-      const roomsData = await chatService.getUserRooms()
-      setRooms(roomsData)
+      await loadUserRooms()
       
       // 選擇新建的聊天室
       setSelectedRoom(room)
@@ -467,7 +455,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const handleInviteSuccess = () => {
     setShowInviteModal(false)
     // 重新載入聊天室資訊以更新成員列表
-    loadRoomsAndJoinAll()
+    loadUserRooms()
   }
 
   // 新增獲取聊天室顯示名稱的函數
