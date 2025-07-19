@@ -365,11 +365,36 @@
   border-radius: 24px;
   font-size: 1rem;
   outline: none;
+  /* 明確指定顏色，避免被全局樣式覆蓋 */
+  color: #333333 !important;
+  background-color: #ffffff !important;
+  /* 手機優化設定 */
+  font-size: 16px; /* 防止手機瀏覽器縮放 */
+  min-height: 44px; /* 確保觸控區域足夠大 */
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-text-fill-color: #333333 !important; /* Safari 專用 */
 }
 
 .message-input:focus {
   border-color: #4a90e2;
   box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+/* Placeholder 樣式確保在手機上可見 */
+.message-input::placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
+}
+
+.message-input::-webkit-input-placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
+}
+
+.message-input::-moz-placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
 }
 
 .send-btn {
