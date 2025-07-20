@@ -789,6 +789,7 @@ app.post('/api/rooms/:roomId/invite', authenticateToken, async (req, res) => {
     
     res.json({ 
       message: 'Users invited successfully',
+      invitedCount: newMemberIds.length,
       room: roomData // 🆕 返回包含成員資訊的聊天室資料
     });
     

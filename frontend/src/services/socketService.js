@@ -119,14 +119,14 @@ class SocketService {
   }
 
   // 🆕 邀請用戶加入 Socket 房間
-  inviteUsersToRoom(roomId, userIds) {
+  /*inviteUsersToRoom(roomId, userIds) {
     if (this.socket && this.socket.connected) {
       this.socket.emit('invite-users-to-room', { roomId, userIds })
       console.log('發送邀請用戶到房間請求:', { roomId, userIds })
     } else {
       console.warn('Socket 未連接，無法邀請用戶到房間')
     }
-  }
+  }*/
 
   addMessageCallback(callback) {
     if (typeof callback === 'function') {

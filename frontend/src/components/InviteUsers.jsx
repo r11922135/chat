@@ -56,10 +56,10 @@ const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
       const result = await chatService.inviteUsers(room.id, userIds)
       
       // 🆕 步驟2：再呼叫 Socket 讓在線用戶加入房間
-      console.log('正在讓被邀請的用戶加入 Socket 房間...')
-      socketService.inviteUsersToRoom(room.id, userIds)
+      /*console.log('正在讓被邀請的用戶加入 Socket 房間...')
+      socketService.inviteUsersToRoom(room.id, userIds)*/
       
-      alert(`成功邀請 ${result.invitedUsers.length} 位用戶！`)
+      alert(`成功邀請 ${result.invitedCount} 位用戶！`)
       
       if (onInviteSuccess) {
         onInviteSuccess(result)
