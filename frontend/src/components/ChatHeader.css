@@ -1,0 +1,51 @@
+/* ChatHeader 樣式 */
+.chat-header {
+  background-color: #4a90e2;
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  /* 手機版修正：確保頂部導航始終可見 */
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+/* 手機版專用頂部導航優化 */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 0.8rem 1rem;
+    position: sticky; /* 改為 sticky 確保始終可見 */
+    top: 0;
+    z-index: 1000;
+    background-color: #4a90e2; /* 確保背景色 */
+  }
+}
+
+.chat-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logout-btn {
+  background-color: #023978;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.logout-btn:hover {
+  background-color: #071b46;
+}

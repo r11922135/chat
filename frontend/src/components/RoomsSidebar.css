@@ -1,0 +1,266 @@
+/* RoomsSidebar 樣式 */
+.rooms-sidebar {
+  width: 300px;
+  background-color: white;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rooms-sidebar.mobile {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* 手機版修正：確保邊界不會造成布局問題 */
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.rooms-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rooms-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.search-direct-btn,
+.new-chat-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 50;
+}
+
+.search-direct-btn {
+  background-color: #28a745; /* 綠色表示新增聯繫人/私訊 */
+}
+
+.search-direct-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.new-chat-btn {
+  background-color: #4a90e2; /* 藍色表示創建群組 */
+}
+
+.new-chat-btn:hover {
+  background-color: #357abd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+}
+
+.search-direct-btn:active,
+.new-chat-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.rooms-list {
+  flex: 1;
+  overflow-y: auto;
+  /* 確保在手機模式下填滿可用空間 */
+  min-height: 0;
+}
+
+.no-rooms {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  /* 在手機模式下居中顯示 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+.room-item {
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.room-item:hover {
+  background-color: #f8f9fa;
+}
+
+.room-item.active {
+  background-color: #e3f2fd;
+  border-right: 3px solid #4a90e2;
+}
+
+.room-item.has-unread {
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+}
+
+.room-item.has-unread.active {
+  background-color: #e3f2fd;
+  border-left: 3px solid #ffc107;
+}
+
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.room-name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.room-display-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-icon {
+  font-size: 0.9rem;
+}
+
+.room-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.room-type {
+background: none;
+color: #aaa;
+font-size: 0.8rem;
+margin-bottom: 0.25rem;
+padding: 0;
+border-radius: 0;
+text-transform: uppercase;
+}
+
+.unread-badge {
+  background-color: #dc3545;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.last-message {
+  font-size: 0.85rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.last-message .sender {
+  font-weight: 500;
+  color: #666;
+}
+
+.last-message .content {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.last-message .content.no-message {
+  font-style: italic;
+  color: #999;
+}
+
+.last-message .time {
+  font-size: 0.75rem;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.error-message {
+  background-color: #fee;
+  color: #c00;
+  padding: 0.75rem;
+  margin: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #fcc;
+  font-size: 0.9rem;
+}
+
+/* 手機版按鈕優化 */
+@media (max-width: 768px) {
+  .search-direct-btn,
+  .new-chat-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    z-index: 100;
+  }
+  
+  /* 手機版按鈕區域優化 */
+  .rooms-header {
+    padding: 1rem;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .header-buttons {
+    position: relative;
+    z-index: 20;
+  }
+}

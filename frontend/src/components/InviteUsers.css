@@ -63,6 +63,7 @@
 }
 
 .search-input {
+  color: #333 !important;
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #ddd;

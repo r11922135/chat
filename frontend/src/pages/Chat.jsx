@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import chatService from '../services/chatService'
 import socketService from '../services/socketService'
+import ChatHeader from '../components/ChatHeader'
+import RoomsSidebar from '../components/RoomsSidebar'
+import ChatWindow from '../components/ChatWindow'
 import InviteUsers from '../components/InviteUsers'
 import UserSearch from '../components/UserSearch'
 import './Chat.css'
@@ -490,269 +493,70 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   return (
     <div className="chat-container">
-      {/* 頂部導航 */}
-      <div className="chat-header">
-        <h1>Chat App</h1>
-        <div className="user-info">
-          <span>Welcome, {currentUser}</span>
-          <button onClick={handleLogout} className="logout-btn">Logout</button>
-        </div>
-      </div>
+      <ChatHeader 
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
 
       <div className="chat-main">
         {/* 手機模式：只顯示聊天室列表 */}
         {isMobile && showSidebar && (
-          <div className="rooms-sidebar mobile">
-            <div className="rooms-header">
-              <h3>Chats</h3>
-              <div className="header-buttons">
-                <button 
-                  className="search-user-btn" 
-                  onClick={() => setShowUserSearch(true)}
-                  title="搜尋用戶開始聊天"
-                >
-                  👤
-                </button>
-                <button className="new-chat-btn" onClick={handleCreateRoom}>👥</button>
-              </div>
-            </div>
-            
-            {error && <div className="error-message">{error}</div>}
-            
-            <div className="rooms-list">
-              {rooms.length === 0 ? (
-                <div className="no-rooms">No chat rooms yet</div>
-              ) : (
-                rooms.map(room => (
-                  <div
-                    key={room.id}
-                    data-room-id={room.id}
-                    className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''} ${room.unreadCount > 0 ? 'has-unread' : ''}`}
-                    onClick={() => selectRoom(room)}
-                  >
-                    <div className="room-header">
-                      <div className="room-name">{getRoomDisplayName(room)}</div>
-                      <div className="room-badges">
-                        {<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>}
-                        {room.unreadCount > 0 && (
-                          <div className="unread-badge">{room.unreadCount}</div>
-                        )}
-                      </div>
-                    </div>
-                    {room.Messages && room.Messages.length > 0 && (
-                      <div className="last-message">
-                        <span className="sender">{room.Messages[0].User.username}:</span>
-                        <span className="content">{room.Messages[0].content}</span>
-                        <span className="time">
-                          {new Date(room.Messages[0].createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    )}
-                    {(!room.Messages || room.Messages.length === 0) && (
-                      <div className="last-message">
-                        <span className="content no-message">(No messages)</span>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <RoomsSidebar
+            rooms={rooms}
+            selectedRoom={selectedRoom}
+            onSelectRoom={selectRoom}
+            onCreateRoom={handleCreateRoom}
+            onShowUserSearch={() => setShowUserSearch(true)}
+            getRoomDisplayName={getRoomDisplayName}
+            error={error}
+            isMobile={true}
+          />
         )}
 
         {/* 手機模式：只顯示訊息畫面 */}
         {isMobile && !showSidebar && selectedRoom && (
-          <div className="chat-window mobile">
-            <div className="chat-window-header">
-              <button className="back-btn" onClick={handleBackToSidebar}>←</button>
-              <div className="room-info">
-                <h3>
-                  {selectedRoom.isGroup 
-                    ? (selectedRoom.name || 'Unnamed Group')
-                    : (selectedRoom.members?.find(member => member.username !== currentUser)?.username || selectedRoom.name || 'Direct Message')
-                  }
-                </h3>
-              </div>
-              <div className="header-actions">
-                {selectedRoom.isGroup && (
-                  <button 
-                    className="invite-btn"
-                    onClick={() => setShowInviteModal(true)}
-                    title="邀請用戶加入聊天室"
-                  >
-                    Invite Users
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="messages-container">
-              {messages.length === 0 ? (
-                <div className="no-messages">No messages yet. Start the conversation!</div>
-              ) : (
-                messages.map(message => (
-                  <div
-                    key={message.id}
-                    className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
-                  >
-                    <div className="message-header">
-                      <span className="message-sender">{message.User.username}</span>
-                      <span className="message-time">
-                        {new Date(message.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <div className="message-content">{message.content}</div>
-                  </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="message-form">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="message-input"
-              />
-              <button type="submit" className="send-btn">Send</button>
-            </form>
-          </div>
+          <ChatWindow
+            selectedRoom={selectedRoom}
+            messages={messages}
+            newMessage={newMessage}
+            onSendMessage={handleSendMessage}
+            onMessageChange={(e) => setNewMessage(e.target.value)}
+            onShowInviteModal={() => setShowInviteModal(true)}
+            onBackToSidebar={handleBackToSidebar}
+            currentUser={currentUser}
+            isMobile={true}
+          />
         )}
 
         {/* 桌面模式：同時顯示列表和訊息 */}
         {!isMobile && (
           <>
-            {/* 左側聊天室列表 */}
-            <div className="rooms-sidebar">
-              <div className="rooms-header">
-                <h3>Chats</h3>
-                <div className="header-buttons">
-                  <button 
-                    className="search-user-btn" 
-                    onClick={() => setShowUserSearch(true)}
-                    title="搜尋用戶開始聊天"
-                  >
-                    👤
-                  </button>
-                  <button className="new-chat-btn" onClick={handleCreateRoom}>👥</button>
-                </div>
-              </div>
-              
-              {error && <div className="error-message">{error}</div>}
-              
-              <div className="rooms-list">
-                {rooms.length === 0 ? (
-                  <div className="no-rooms">No chat rooms yet</div>
-                ) : (
-                  rooms.map(room => (
-                    <div
-                      key={room.id}
-                      data-room-id={room.id}
-                      className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''} ${room.unreadCount > 0 ? 'has-unread' : ''}`}
-                      onClick={() => selectRoom(room)}
-                    >
-                      <div className="room-header">
-                        <div className="room-name">{getRoomDisplayName(room)}</div>
-                        <div className="room-badges">
-                          {<div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>}
-                          {room.unreadCount > 0 && (
-                            <div className="unread-badge">{room.unreadCount}</div>
-                          )}
-                        </div>
-                      </div>
-                      {room.Messages && room.Messages.length > 0 && (
-                        <div className="last-message">
-                          <span className="sender">{room.Messages[0].User.username}:</span>
-                          <span className="content">{room.Messages[0].content}</span>
-                          <span className="time">
-                            {new Date(room.Messages[0].createdAt).toLocaleTimeString()}
-                          </span>
-                        </div>
-                      )}
-                      {(!room.Messages || room.Messages.length === 0) && (
-                        <div className="last-message">
-                          <span className="content no-message">(No messages)</span>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* 右側聊天窗口 */}
-            <div className="chat-window">
-              {selectedRoom ? (
-                <>
-                  <div className="chat-window-header">
-                    <div className="room-info">
-                      <h3>
-                        {selectedRoom.isGroup 
-                          ? (selectedRoom.name || 'Unnamed Group')
-                          : (selectedRoom.members?.find(member => member.username !== currentUser)?.username || selectedRoom.name || 'Direct Message')
-                        }
-                      </h3>
-                    </div>
-                    <div className="header-actions">
-                      {selectedRoom.isGroup && (
-                        <button 
-                          className="invite-btn"
-                          onClick={() => setShowInviteModal(true)}
-                          title="邀請用戶加入聊天室"
-                        >
-                          Invite Users
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="messages-container">
-                    {messages.length === 0 ? (
-                      <div className="no-messages">No messages yet. Start the conversation!</div>
-                    ) : (
-                      messages.map(message => (
-                        <div
-                          key={message.id}
-                          className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
-                        >
-                          <div className="message-header">
-                            <span className="message-sender">{message.User.username}</span>
-                            <span className="message-time">
-                              {new Date(message.createdAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <div className="message-content">{message.content}</div>
-                        </div>
-                      ))
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  <form onSubmit={handleSendMessage} className="message-form">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type a message..."
-                      className="message-input"
-                    />
-                    <button type="submit" className="send-btn">Send</button>
-                  </form>
-                </>
-              ) : (
-                <div className="no-room-selected">
-                  <h3>Select a chat room to start messaging</h3>
-                  <p>Choose a room from the sidebar to view and send messages.</p>
-                </div>
-              )}
-            </div>
+            <RoomsSidebar
+              rooms={rooms}
+              selectedRoom={selectedRoom}
+              onSelectRoom={selectRoom}
+              onCreateRoom={handleCreateRoom}
+              onShowUserSearch={() => setShowUserSearch(true)}
+              getRoomDisplayName={getRoomDisplayName}
+              error={error}
+              isMobile={false}
+            />
+            <ChatWindow
+              selectedRoom={selectedRoom}
+              messages={messages}
+              newMessage={newMessage}
+              onSendMessage={handleSendMessage}
+              onMessageChange={(e) => setNewMessage(e.target.value)}
+              onShowInviteModal={() => setShowInviteModal(true)}
+              onBackToSidebar={handleBackToSidebar}
+              currentUser={currentUser}
+              isMobile={false}
+            />
           </>
         )}
       </div>
 
-      {/* 邀請用戶模態窗口 */}
+      {/* 模態窗口 */}
       {showInviteModal && selectedRoom && (
         <InviteUsers
           room={selectedRoom}
