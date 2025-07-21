@@ -17,7 +17,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [error, setError] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showUserSearch, setShowUserSearch] = useState(false)
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 650)
   const [showSidebar, setShowSidebar] = useState(true)
   const messagesEndRef = useRef(null)
   
@@ -93,7 +93,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 監聽螢幕尺寸變化
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768
+      const mobile = window.innerWidth <= 650
       setIsMobile(mobile)
       if (!mobile) setShowSidebar(true) // 桌面模式始終顯示側邊欄
     }
