@@ -837,7 +837,6 @@ sequelize.authenticate()
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`Socket.IO server is ready`);
-      console.log(`API URL: http://localhost:${PORT}`);
     });
   })
   .catch(err => {
