@@ -122,7 +122,7 @@ POST   /api/rooms/:id/messages - Send message to room
 ```
 GET    /api/users/search     - Search users by username
 ```
-
+<!--
 ### Real-time Events | 即時事件
 
 #### Socket.IO Events | Socket.IO 事件
@@ -133,13 +133,13 @@ GET    /api/users/search     - Search users by username
 - **Socket.IO Integration:** Seamless real-time messaging with automatic reconnection
 - **Room Management:** Users automatically join their chat rooms on connection
 - **Message Broadcasting:** Efficient message delivery to room participants only
-<!-- - **Connection Handling:** Robust error handling and connection status management -->
+ - **Connection Handling:** Robust error handling and connection status management 
 
 ### Database Design | 資料庫設計
 - **Many-to-Many Relationships:** Users can belong to multiple rooms via junction table
 - **Message Threading:** Messages are properly linked to rooms and users
 - **Unread Count Calculation:** Efficient tracking using lastReadAt timestamps
-- **Optimized Queries:** SQL queries optimized for chat room listing and message retrieval
+- **Optimized Queries:** SQL queries optimized for chat room listing and message retrieval -->
 <!--
 ### Security Features | 安全特性
 - **JWT Authentication:** Stateless authentication with secure token handling
