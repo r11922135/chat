@@ -6,6 +6,8 @@
 > 
 > https://www.pin-chun.it.com/
 
+![Database Schema](docs/images/screenshot.png)
+
 ## 🌟 Features | 功能特色
 
 ### 🔐 Authentication & User Management | 身份驗證與用戶管理
