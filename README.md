@@ -93,7 +93,7 @@ RoomUsers {
   updatedAt: TIMESTAMP
 }
 ```
-[Database Schema](docs/images/database-schema.jpg)
+![Database Schema](docs/images/database-schema.jpg)
 
 ### API Endpoints | API
 
