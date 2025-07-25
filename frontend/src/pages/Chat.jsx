@@ -20,11 +20,16 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 650)
   const [showSidebar, setShowSidebar] = useState(true)
   const messagesEndRef = useRef(null)
+  const selectedRoomRef = useRef(selectedRoom)
   
   const currentUser = localStorage.getItem('chatUsername')       // 用戶名
   const currentUserId = localStorage.getItem('chatUserId')       // 用戶 ID
   const token = localStorage.getItem('chatToken')                // 身份驗證 token
 
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom
+  }, [selectedRoom])
+  
   // 【應用初始化】檢查身份驗證並初始化聊天環境
   // 這是整個聊天組件的入口點，負責建立聊天所需的基礎環境
   useEffect(() => {
@@ -43,25 +48,123 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         setRooms(roomsData)
 
         // 2. 設定 Socket 連接成功後的回調
-        socketService.setOnConnectedCallback(() => {
-          console.log('✅ Socket 已連接，後端會自動加入房間')
-          
-          // 🆕 在 Socket 連接成功後註冊新聊天室監聽器
-          const handleNewRoom = (data) => {
-            console.log('收到新聊天室:', data.room);
+        // 🆕 在 Socket 連接成功後註冊新聊天室監聽器
+        socketService.setOnNewRoomCallback((data) => {
+          console.log('收到新聊天室:', data.room);
+          // 將新聊天室加入列表
+          setRooms(prev => {
+            const exists = prev.find(room => room.id === data.room.id);
+            if (!exists) {
+              return [data.room, ...prev]; // 新聊天室放在最上面
+            }
+            return prev;
+          });
+        });
+
+        // 向 socketService 註冊訊息回調函數
+        // socketService 內部維護一個回調函數列表，當收到新訊息時會調用所有註冊的回調
+        socketService.addMessageCallback((newMessage) => {
+          console.log('收到新訊息:', newMessage)
+          const currentRoom = selectedRoomRef.current
+          // 檢查新訊息是否屬於當前選中的聊天室
+          if (currentRoom && String(newMessage.roomId) === String(currentRoom.id)) {
+            console.log('訊息屬於當前聊天室，更新訊息列表')
+            chatService.markRoomAsRead(newMessage.roomId) // 標記為已讀
             
-            // 將新聊天室加入列表
-            setRooms(prev => {
-              const exists = prev.find(room => room.id === data.room.id);
-              if (!exists) {
-                return [data.room, ...prev]; // 新聊天室放在最上面
+            // 更新當前聊天室的訊息列表
+            setMessages(prev => {
+              const exists = prev.find(msg => msg.id === newMessage.id)
+              if (exists) {
+                console.log('訊息已存在，跳過更新')
+                return prev
               }
-              return prev;
-            });
-          };
-          
-          socketService.setOnNewRoomCallback(handleNewRoom);
+              
+              console.log('添加新訊息到列表')
+              return [...prev, newMessage]
+            })
+            
+            // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
+            // 當收到屬於當前聊天室的新訊息時，更新聊天室列表的最新訊息顯示
+            setRooms(prev => {
+              const updatedRooms = prev.map(room => {
+                if (room.id === currentRoom.id) {
+                  return {
+                    ...room,
+                    Messages: [{
+                      id: newMessage.id,
+                      content: newMessage.content,
+                      createdAt: newMessage.createdAt,
+                      User: newMessage.User
+                    }]
+                  }
+                }
+                return room
+              })
+              
+              // 將更新的聊天室移動到最上方
+              const targetRoom = updatedRooms.find(room => room.id === currentRoom.id)
+              const otherRooms = updatedRooms.filter(room => room.id !== currentRoom.id)
+              return [targetRoom, ...otherRooms]
+            })
+            
+          } else {
+            // 🆕 如果訊息不屬於當前聊天室，更新聊天室列表中的未讀數和最新訊息
+            console.log('訊息不屬於當前聊天室，更新聊天室列表')
+            setRooms(prev => {
+              const existingRoom = prev.find(room => room.id === newMessage.roomId)
+              
+              if (existingRoom) {
+                // 如果房間已存在，更新未讀數和最新訊息，並移動到最上方
+                const updatedRooms = prev.map(room => {
+                  if (room.id === newMessage.roomId) {
+                    return {
+                      ...room,
+                      unreadCount: Number(room.unreadCount || 0) + 1,
+                      Messages: [{
+                        id: newMessage.id,
+                        content: newMessage.content,
+                        createdAt: newMessage.createdAt,
+                        User: newMessage.User
+                      }]
+                    }
+                  }
+                  return room
+                })
+                
+                // 將更新的聊天室移動到最上方
+                const targetRoom = updatedRooms.find(room => room.id === newMessage.roomId)
+                const otherRooms = updatedRooms.filter(room => room.id !== newMessage.roomId)
+                return [targetRoom, ...otherRooms]
+              } else {
+                // 如果房間不存在，新增一個新房間到列表最上面
+                const newRoom = {
+                  id: newMessage.roomId,
+                  name: newMessage.Room.name,
+                  isGroup: true,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  unreadCount: 1,
+                  lastReadAt: null,
+                  Messages: [{
+                    id: newMessage.id,
+                    content: newMessage.content,
+                    createdAt: newMessage.createdAt,
+                    User: newMessage.User
+                  }]
+                }
+                console.log('新增新聊天室到列表:', newRoom)
+                return [newRoom, ...prev] // 放在最上面
+              }
+            })
+          }
         })
+
+
+
+
+
+
+
 
         // 3. 連接 Socket - 後端中間件會自動處理房間加入
         socketService.connect()
@@ -100,45 +203,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-  
-  // 【為什麼要監聽 token 變化？】
-  // 當用戶重新登入時，會有新的 token，我們需要重新初始化整個聊天環境
-  // 當用戶登出時，token 會被清空，我們需要斷開連接並清理資源
 
-  // 【簡化功能】載入用戶的聊天室列表
-  // 這個函數只負責載入聊天室資料，不再處理 Socket 房間加入
-  // Socket 房間的加入由後端中間件自動處理
-  const loadUserRooms = async () => {
-    try {
-      setLoading(true)
-      
-      const roomsData = await chatService.getUserRooms()
-      setRooms(roomsData)
-      
-      setError('')
-    } catch (err) {
-      console.error('Load rooms error:', err)
-      
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        localStorage.removeItem('chatToken')
-        localStorage.removeItem('chatUsername')
-        localStorage.removeItem('chatUserId')
-        onAuthExpired()
-      } else {
-        setError('Failed to load chat rooms')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  
-  // 【自動滾动功能】讓聊天視窗始終顯示最新訊息
   const scrollToBottom = () => {
-    // 使用 optional chaining (?.) 安全地呼叫 scrollIntoView
-    // 如果 messagesEndRef.current 是 null，不會拋出錯誤
     messagesEndRef.current?.scrollIntoView({ 
-      behavior: 'smooth'  // 平滑滾動效果，提供更好的用戶體驗
+      behavior: 'smooth'  
     })
   }
 
@@ -147,139 +215,13 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   useEffect(() => {
     scrollToBottom()
   }, [messages]) // 依賴項：當 messages 狀態改變時執行滾動
-  
-  useEffect(() => {
-    // 定義處理新訊息的回調函數
-    // 這個函數會在每次 selectedRoom 改變時重新創建，確保它能存取到最新的 selectedRoom 值
-    const handleNewMessage = (newMessage) => {
-      console.log('收到新訊息:', newMessage)
-      
-      // 檢查新訊息是否屬於當前選中的聊天室
-      if (selectedRoom && String(newMessage.roomId) === String(selectedRoom.id)) {
-        console.log('訊息屬於當前聊天室，更新訊息列表')
-        chatService.markRoomAsRead(newMessage.roomId) // 標記為已讀
-        
-        // 更新當前聊天室的訊息列表
-        setMessages(prev => {
-          const exists = prev.find(msg => msg.id === newMessage.id)
-          if (exists) {
-            console.log('訊息已存在，跳過更新')
-            return prev
-          }
-          
-          console.log('添加新訊息到列表')
-          return [...prev, newMessage]
-        })
-        
-        // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
-        // 當收到屬於當前聊天室的新訊息時，更新聊天室列表的最新訊息顯示
-        setRooms(prev => {
-          const updatedRooms = prev.map(room => {
-            if (room.id === selectedRoom.id) {
-              return {
-                ...room,
-                Messages: [{
-                  id: newMessage.id,
-                  content: newMessage.content,
-                  createdAt: newMessage.createdAt,
-                  User: newMessage.User
-                }]
-              }
-            }
-            return room
-          })
-          
-          // 將更新的聊天室移動到最上方
-          const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
-          const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
-          return [targetRoom, ...otherRooms]
-        })
-        
-      } else {
-        // 🆕 如果訊息不屬於當前聊天室，更新聊天室列表中的未讀數和最新訊息
-        console.log('訊息不屬於當前聊天室，更新聊天室列表')
-        setRooms(prev => {
-          const existingRoom = prev.find(room => room.id === newMessage.roomId)
-          
-          if (existingRoom) {
-            // 如果房間已存在，更新未讀數和最新訊息，並移動到最上方
-            const updatedRooms = prev.map(room => {
-              if (room.id === newMessage.roomId) {
-                return {
-                  ...room,
-                  unreadCount: Number(room.unreadCount || 0) + 1,
-                  Messages: [{
-                    id: newMessage.id,
-                    content: newMessage.content,
-                    createdAt: newMessage.createdAt,
-                    User: newMessage.User
-                  }]
-                }
-              }
-              return room
-            })
-            
-            // 將更新的聊天室移動到最上方
-            const targetRoom = updatedRooms.find(room => room.id === newMessage.roomId)
-            const otherRooms = updatedRooms.filter(room => room.id !== newMessage.roomId)
-            return [targetRoom, ...otherRooms]
-          } else {
-            // 如果房間不存在，新增一個新房間到列表最上面
-            const newRoom = {
-              id: newMessage.roomId,
-              name: newMessage.Room.name,
-              isGroup: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              unreadCount: 1,
-              lastReadAt: null,
-              Messages: [{
-                id: newMessage.id,
-                content: newMessage.content,
-                createdAt: newMessage.createdAt,
-                User: newMessage.User
-              }]
-            }
-            console.log('新增新聊天室到列表:', newRoom)
-            return [newRoom, ...prev] // 放在最上面
-          }
-        })
-      }
-    }
-
-    // 向 socketService 註冊訊息回調函數
-    // socketService 內部維護一個回調函數列表，當收到新訊息時會調用所有註冊的回調
-    socketService.addMessageCallback(handleNewMessage)
-
-    // 清理函數：當組件卸載或 selectedRoom 改變時執行
-    // 這是 React useEffect 的關鍵特性，用於避免內存泄漏和副作用
-    // 
-    // 為什麼清理很重要：
-    // 1. 防止內存泄漏：如果不移除監聽器，舊的函數會一直被保留在內存中
-    // 2. 避免重複處理：每次切換聊天室都會註冊新的監聽器，如果不清理舊的，
-    //    最終會有多個監聽器同時運行，造成重複處理和性能問題
-    // 3. 確保狀態一致性：移除舊的監聽器確保只有最新的監聽器在運行
-    return () => {
-      socketService.removeMessageCallback(handleNewMessage)
-    }
-  }, [selectedRoom]) // 依賴項：當 selectedRoom 改變時，重新執行這個 useEffect
-  
-  // 【技術細節】為什麼不能省略 selectedRoom 依賴項？
-  // 如果依賴項陣列是空的 []，useEffect 只會在組件首次掛載時執行一次
-  // 這樣 handleNewMessage 函數就會永遠使用初始的 selectedRoom 值（通常是 null）
-  // 即使用戶後來選擇了聊天室，監聽器仍然使用舊的值，導致訊息無法正確過濾和顯示
 
   // 選擇聊天室並載入訊息
   // 這是用戶點擊聊天室列表中的某個聊天室時觸發的函數
   const selectRoom = async (room) => {
     try {
       console.log('選擇聊天室:', room)
-      
-      // 【重要順序】先設定新的聊天室，再清空訊息列表
-      // 設定 selectedRoom 會觸發上面的 useEffect 重新註冊訊息監聽器
-      // 這確保了新的監聽器能夠正確過濾屬於這個聊天室的訊息
       setSelectedRoom(room)
-      
       // 清空當前訊息列表，為新聊天室的訊息做準備
       // 這提供了即時的視覺反饋，用戶會看到舊訊息立即消失
       setMessages([])
@@ -311,17 +253,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
           console.error('標記已讀失敗:', readErr)
         }
       }
-      
       // 手機模式下點選聊天室切換到訊息頁面
       if (isMobile) {
         setShowSidebar(false)
       }
-      
-      // 【架構說明】為什麼不需要處理 Socket 房間加入/離開？
-      // 在這個實現中，我們在應用初始化時就加入了用戶所有的聊天室（見 loadRoomsAndJoinAll）
-      // 所以這裡不需要額外的 Socket 房間管理
-      // 優點：簡化了代碼，減少了 Socket 操作
-      // 缺點：如果用戶有很多聊天室，會佔用更多 Socket 資源
     } catch (err) {
       console.error('Load messages error:', err)
       console.error('錯誤詳情:', err.response?.data || err.message)
@@ -442,8 +377,14 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   // 新增處理開始一對一聊天的函數
   const handleStartDirectChat = async (room) => {
     try {
-      // 重新載入聊天室列表
-      await loadUserRooms()
+      setRooms(prev => {
+        // 檢查是否已經存在這個聊天室
+        const roomExists = prev.some(r => r.id === room.id)
+        if (!roomExists) {
+          return [room, ...prev]
+        }
+        return prev
+      })
       
       // 選擇新建的聊天室
       setSelectedRoom(room)
@@ -455,10 +396,21 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   }
 
   // 邀請成功後的處理
-  const handleInviteSuccess = () => {
+  const handleInviteSuccess = (room) => {
     setShowInviteModal(false)
     // 重新載入聊天室資訊以更新成員列表
-    loadUserRooms()
+    setRooms(prev => {
+        const updatedRooms = prev.map(r => {
+          if (r.id === room.id) {
+            return {
+              ...r,
+              members: room.members
+            }
+          }
+          return r
+        })
+        return updatedRooms
+      })
   }
 
   // 新增獲取聊天室顯示名稱的函數

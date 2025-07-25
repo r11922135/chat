@@ -47,7 +47,7 @@ const RoomsSidebar = ({
                   <span className="sender">{room.Messages[0].User.username}:</span>
                   <span className="content">{room.Messages[0].content}</span>
                   <span className="time">
-                    {new Date(room.Messages[0].createdAt).toLocaleTimeString()}
+                    {new Date(room.Messages[0].createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               ) : (

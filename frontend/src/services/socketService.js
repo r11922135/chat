@@ -11,8 +11,9 @@ import { io } from 'socket.io-client'
 class SocketService {
   constructor() {
     this.socket = null
-    this.messageCallbacks = []
+    this.onMessageCallbacks = null
     this.onConnectedCallback = null // 連接成功後的回調（初始連接和重連都會執行）
+    this.onNewRoomCallback = null // 新聊天室創建的回調
   }
 
   getSocketURL() {
@@ -57,13 +58,9 @@ class SocketService {
       })
 
       this.socket.on('new-message', (data) => {
-        this.messageCallbacks.forEach(callback => {
-          try {
-            callback(data)
-          } catch (error) {
-            console.error('訊息回調執行錯誤:', error)
-          }
-        })
+        if (this.onMessageCallbacks) {
+          this.onMessageCallbacks(data)
+        }
       })
 
       // 統一的錯誤處理
@@ -74,6 +71,13 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket 連接錯誤:', error)
+      })
+
+      this.socket.on('new-room-created', (roomData) => {
+        console.log('新聊天室創建:', roomData)
+        if (this.onNewRoomCallback) {
+          this.onNewRoomCallback(roomData)
+        }
       })
     }
     return this.socket
@@ -118,39 +122,23 @@ class SocketService {
     }
   }
 
-  // 🆕 邀請用戶加入 Socket 房間
-  /*inviteUsersToRoom(roomId, userIds) {
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('invite-users-to-room', { roomId, userIds })
-      console.log('發送邀請用戶到房間請求:', { roomId, userIds })
-    } else {
-      console.warn('Socket 未連接，無法邀請用戶到房間')
-    }
-  }*/
-
   addMessageCallback(callback) {
     if (typeof callback === 'function') {
-      this.messageCallbacks.push(callback)
+      this.onMessageCallbacks = callback
     }
   }
 
   removeMessageCallback(callback) {
-    const index = this.messageCallbacks.indexOf(callback)
+    const index = this.onMessageCallbacks.indexOf(callback)
     if (index > -1) {
-      this.messageCallbacks.splice(index, 1)
+      this.onMessageCallbacks.splice(index, 1)
     }
   }
 
   // 在 socketService 中添加新聊天室監聽
   setOnNewRoomCallback(callback) {
-    if (this.socket) {
-      this.socket.on('new-room-created', callback);
-    }
-  }
-
-  removeNewRoomCallback(callback) {
-    if (this.socket) {
-      this.socket.off('new-room-created', callback);
+    if (typeof callback === 'function') {
+      this.onNewRoomCallback = callback
     }
   }
 

@@ -67,7 +67,7 @@ const ChatWindow = ({
               <div className="message-header">
                 <span className="message-sender">{message.User.username}</span>
                 <span className="message-time">
-                  {new Date(message.createdAt).toLocaleTimeString()}
+                  {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <div className="message-content">{message.content}</div>

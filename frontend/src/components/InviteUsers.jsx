@@ -62,7 +62,7 @@ const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
       alert(`成功邀請 ${result.invitedCount} 位用戶！`)
       
       if (onInviteSuccess) {
-        onInviteSuccess(result)
+        onInviteSuccess(result.room)
       }
       
       if (onClose) {
