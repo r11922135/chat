@@ -428,18 +428,37 @@ app.get('/api/rooms', authenticateToken, async (req, res) => {
   }
 });
 
-// 取得聊天室訊息
+// 取得聊天室訊息 (支援分頁)
 app.get('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, async (req, res) => {
   try {
     const { roomId } = req.params;
+    const { page = 1, limit = 20, before } = req.query; // 新增分頁參數
+    
+    const offset = (page - 1) * parseInt(limit);
+    
+    // 構建查詢條件
+    const whereClause = { roomId };
+    if (before) {
+      whereClause.id = { [sequelize.Sequelize.Op.lt]: parseInt(before) };
+    }
     
     const messages = await Message.findAll({
-      where: { roomId },
+      where: whereClause,
       include: [{ model: User, attributes: ['id', 'username'] }],
-      order: [['createdAt', 'ASC']],
+      order: [['createdAt', 'DESC']], // 改為降序，取最新的
+      limit: parseInt(limit),
+      offset: offset
     });
     
-    res.json(messages);
+    // 返回時再反轉順序，讓最舊的在前面
+    const reversedMessages = messages.reverse();
+    
+    res.json({
+      messages: reversedMessages,
+      hasMore: messages.length === parseInt(limit), // 是否還有更多訊息
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
   } catch (err) {
     console.error('Get messages error:', err);
     res.status(500).json({ message: 'Server error' });

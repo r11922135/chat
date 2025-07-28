@@ -19,6 +19,13 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [showUserSearch, setShowUserSearch] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 650)
   const [showSidebar, setShowSidebar] = useState(true)
+  
+  // 新增：訊息緩存和無限滾動相關狀態
+  const [messageCache, setMessageCache] = useState(new Map())
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  
   const messagesEndRef = useRef(null)
   const selectedRoomRef = useRef(selectedRoom)
   
@@ -80,7 +87,22 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               }
               
               console.log('添加新訊息到列表')
-              return [...prev, newMessage]
+              const newMessages = [...prev, newMessage]
+              
+              // 同時更新緩存
+              const cacheKey = currentRoom.id.toString()
+              setMessageCache(prevCache => {
+                const cachedData = prevCache.get(cacheKey)
+                if (cachedData) {
+                  return new Map(prevCache).set(cacheKey, {
+                    ...cachedData,
+                    messages: newMessages
+                  })
+                }
+                return prevCache
+              })
+              
+              return newMessages
             })
             
             // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
@@ -218,26 +240,92 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   // 選擇聊天室並載入訊息
   // 這是用戶點擊聊天室列表中的某個聊天室時觸發的函數
+  // 載入初始訊息
+  const loadInitialMessages = async (roomId) => {
+    try {
+      setLoadingMessages(true)
+      const response = await chatService.getRoomMessages(roomId, 1, 20)
+      
+      setMessages(response.messages || response) // 兼容舊版本回應格式
+      setHasMoreMessages(response.hasMore !== undefined ? response.hasMore : response.length === 20)
+      setCurrentPage(1)
+      
+      // 更新緩存
+      const cacheKey = roomId.toString()
+      setMessageCache(prev => new Map(prev).set(cacheKey, {
+        messages: response.messages || response,
+        hasMore: response.hasMore !== undefined ? response.hasMore : response.length === 20,
+        page: 1
+      }))
+      
+    } catch (err) {
+      console.error('Load initial messages error:', err)
+      setError('Failed to load messages')
+    } finally {
+      setLoadingMessages(false)
+    }
+  }
+
+  // 載入更多訊息（無限滾動）
+  const loadMoreMessages = async () => {
+    if (!selectedRoom || loadingMessages || !hasMoreMessages) return
+    
+    try {
+      setLoadingMessages(true)
+      
+      const nextPage = currentPage + 1
+      const earliestMessageId = messages.length > 0 ? messages[0].id : null
+      
+      const response = await chatService.getRoomMessages(
+        selectedRoom.id, 
+        nextPage, 
+        20, 
+        earliestMessageId
+      )
+      
+      if ((response.messages || response).length > 0) {
+        const newMessages = [...(response.messages || response), ...messages]
+        setMessages(newMessages)
+        setCurrentPage(nextPage)
+        
+        // 更新緩存
+        const cacheKey = selectedRoom.id.toString()
+        setMessageCache(prev => new Map(prev).set(cacheKey, {
+          messages: newMessages,
+          hasMore: response.hasMore !== undefined ? response.hasMore : (response.messages || response).length === 20,
+          page: nextPage
+        }))
+      }
+      
+      setHasMoreMessages(response.hasMore !== undefined ? response.hasMore : (response.messages || response).length === 20)
+      
+    } catch (err) {
+      console.error('Load more messages error:', err)
+      setError('載入訊息失敗')
+    } finally {
+      setLoadingMessages(false)
+    }
+  }
+
   const selectRoom = async (room) => {
     try {
       console.log('選擇聊天室:', room)
       setSelectedRoom(room)
-      // 清空當前訊息列表，為新聊天室的訊息做準備
-      // 這提供了即時的視覺反饋，用戶會看到舊訊息立即消失
-      setMessages([])
       setError('')
       
-      console.log('正在載入聊天室訊息..., roomId:', room.id)
+      // 檢查緩存中是否已有此聊天室的訊息
+      const cacheKey = room.id.toString()
+      const cachedData = messageCache.get(cacheKey)
       
-      // 從後端 API 載入歷史訊息
-      // 這是一個異步操作，可能需要一些時間
-      const messagesData = await chatService.getRoomMessages(room.id)
-      console.log('收到訊息資料:', messagesData)
-      
-      // 設定載入的歷史訊息
-      // 之後如果有新訊息透過 Socket 到達，會通過上面的 useEffect 添加到這個列表中
-      setMessages(messagesData)
-      console.log('訊息設定完成')
+      if (cachedData && cachedData.messages.length > 0) {
+        console.log('從緩存載入訊息:', cachedData.messages.length)
+        setMessages(cachedData.messages)
+        setHasMoreMessages(cachedData.hasMore)
+        setCurrentPage(cachedData.page)
+      } else {
+        console.log('載入新聊天室訊息...')
+        await loadInitialMessages(room.id)
+      }
       
       // 🆕 標記聊天室為已讀（如果有未讀訊息）
       if (room.unreadCount > 0) {
@@ -477,6 +565,9 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             onBackToSidebar={handleBackToSidebar}
             currentUser={currentUser}
             isMobile={true}
+            onLoadMore={loadMoreMessages}
+            hasMoreMessages={hasMoreMessages}
+            loadingMessages={loadingMessages}
           />
         )}
 
@@ -503,6 +594,9 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               onBackToSidebar={handleBackToSidebar}
               currentUser={currentUser}
               isMobile={false}
+              onLoadMore={loadMoreMessages}
+              hasMoreMessages={hasMoreMessages}
+              loadingMessages={loadingMessages}
             />
           </>
         )}
