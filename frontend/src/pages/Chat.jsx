@@ -226,7 +226,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const scrollToBottom = () => {
+  /*const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ 
       behavior: 'smooth'  
     })
@@ -237,7 +237,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   useEffect(() => {
     scrollToBottom()
   }, [messages]) // 依賴項：當 messages 狀態改變時執行滾動
-
+*/
   // 選擇聊天室並載入訊息
   // 這是用戶點擊聊天室列表中的某個聊天室時觸發的函數
   // 載入初始訊息
@@ -503,9 +503,9 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   // 新增獲取聊天室顯示名稱的函數
   const getRoomDisplayName = (room) => {
-    console.log('getRoomDisplayName - room:', room)
-    console.log('getRoomDisplayName - currentUser:', currentUser)
-    console.log('getRoomDisplayName - room.members:', room.members)
+    //console.log('getRoomDisplayName - room:', room)
+    //console.log('getRoomDisplayName - currentUser:', currentUser)
+    //console.log('getRoomDisplayName - room.members:', room.members)
     if (room.isGroup) {
       return (
         <span className="room-display-name">

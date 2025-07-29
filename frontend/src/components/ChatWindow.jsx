@@ -18,9 +18,9 @@ const ChatWindow = ({
 }) => {
   const messagesEndRef = useRef(null)
 
-  useEffect(() => {
+  /*useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages])*/
 
   if (!selectedRoom) {
     return (
@@ -97,6 +97,7 @@ const ChatWindow = ({
               <div
                 key={message.id}
                 className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
+                style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }} // 新增間距與美化
               >
                 <div className="message-header">
                   <span className="message-sender">{message.User.username}</span>
