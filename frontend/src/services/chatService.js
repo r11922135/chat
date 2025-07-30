@@ -50,12 +50,12 @@ const createRoom = async (roomData) => {
   return response.data
 }
 
-// 取得聊天室的訊息 (支援分頁)
-const getRoomMessages = async (roomId, page = 1, limit = 20, before = null) => {
-  console.log('chatService.getRoomMessages 被調用, roomId:', roomId, 'page:', page);
+// 取得聊天室的訊息 (基於 ID 的分頁)
+const getRoomMessages = async (roomId, beforeId = null) => {
+  console.log('chatService.getRoomMessages 被調用, roomId:', roomId, 'beforeId:', beforeId);
   const config = {
     headers: getAuthHeaders(),
-    params: { page, limit, before }
+    params: beforeId ? { before: beforeId } : {}
   }
   console.log('請求配置:', config);
   

@@ -428,13 +428,12 @@ app.get('/api/rooms', authenticateToken, async (req, res) => {
   }
 });
 
-// 取得聊天室訊息 (支援分頁)
+// 取得聊天室訊息 (基於 ID 的分頁)
 app.get('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { page = 1, limit = 20, before } = req.query; // 新增分頁參數
-    
-    const offset = (page - 1) * parseInt(limit);
+    const { before } = req.query; // 只保留 before 參數
+    const limit = 15; // 固定每次取 15 則訊息
     
     // 構建查詢條件
     const whereClause = { roomId };
@@ -445,19 +444,16 @@ app.get('/api/rooms/:roomId/messages', authenticateToken, checkRoomAccess, async
     const messages = await Message.findAll({
       where: whereClause,
       include: [{ model: User, attributes: ['id', 'username'] }],
-      order: [['createdAt', 'DESC']], // 改為降序，取最新的
-      limit: parseInt(limit),
-      offset: offset
+      order: [['id', 'DESC']], // 按 id 降序，取更舊的訊息
+      limit: limit
     });
     
-    // 返回時再反轉順序，讓最舊的在前面
+    // 返回時反轉順序，讓最舊的在前面
     const reversedMessages = messages.reverse();
     
     res.json({
       messages: reversedMessages,
-      hasMore: messages.length === parseInt(limit), // 是否還有更多訊息
-      page: parseInt(page),
-      limit: parseInt(limit)
+      hasMore: messages.length === limit // 如果取滿 15 則，表示還有更多
     });
   } catch (err) {
     console.error('Get messages error:', err);

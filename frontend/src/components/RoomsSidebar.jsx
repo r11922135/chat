@@ -10,6 +10,22 @@ const RoomsSidebar = ({
   error,
   isMobile 
 }) => {
+  const formatRoomTime = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const diffDays = (today - msgDay) / (1000 * 60 * 60 * 24)
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } else if (diffDays === 1) {
+      return 'Yesterday'
+    } else {
+      return date.toLocaleDateString()
+    }
+  }
   return (
     <div className={`rooms-sidebar ${isMobile ? 'mobile' : ''}`}>
       <div className="rooms-header">
@@ -47,7 +63,7 @@ const RoomsSidebar = ({
                   <span className="sender">{room.Messages[0].User.username}:</span>
                   <span className="content">{room.Messages[0].content}</span>
                   <span className="time">
-                    {new Date(room.Messages[0].createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {formatRoomTime(room.Messages[0].createdAt)}
                   </span>
                 </div>
               ) : (
