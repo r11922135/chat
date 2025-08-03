@@ -60,7 +60,7 @@ const getRoomMessages = async (roomId, beforeId = null) => {
   console.log('請求配置:', config);
   
   try {
-    const response = await axios.get(`${baseURL}/rooms/${roomId}/messages`, config)
+    const response = await axios.get(`${baseURL}/messages/${roomId}`, config)
     console.log('API 回應:', response.data);
     return response.data
   } catch (error) {
@@ -77,7 +77,7 @@ const sendMessage = async (roomId, content) => {
   }
   
   const messageData = { content }
-  const response = await axios.post(`${baseURL}/rooms/${roomId}/messages`, messageData, config)
+  const response = await axios.post(`${baseURL}/messages/${roomId}`, messageData, config)
   return response.data
 }
 

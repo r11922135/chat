@@ -26,6 +26,6 @@ app.get('/', (req, res) => {
 app.use('/api', authController);
 app.use('/api/users', userController);
 app.use('/api/rooms', roomController);
-app.use('/api/rooms', messageController);
+app.use('/api/messages', messageController);
 
 module.exports = app;

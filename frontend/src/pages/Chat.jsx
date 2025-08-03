@@ -397,7 +397,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       // 【更新當前用戶的訊息列表
       setMessages(prev => [...prev, messageResponse])
       // 送出訊息後自動滾動到底部
-      setTimeout(scrollToBottom, 100)
+      //setTimeout(scrollToBottom, 100)
       // 【標記聊天室為已讀】
       try {
         await chatService.markRoomAsRead(selectedRoom.id)

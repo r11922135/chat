@@ -8,7 +8,7 @@ const { authenticateToken, checkRoomAccess } = require('../middleware/auth');
 const router = express.Router();
 
 // 取得聊天室訊息 (基於 ID 的分頁)
-router.get('/:roomId/messages', authenticateToken, checkRoomAccess, async (req, res) => {
+router.get('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => {
   try {
     const { roomId } = req.params;
     const { before } = req.query; // 只保留 before 參數
@@ -41,7 +41,7 @@ router.get('/:roomId/messages', authenticateToken, checkRoomAccess, async (req, 
 });
 
 // 發送訊息
-router.post('/:roomId/messages', authenticateToken, checkRoomAccess, async (req, res) => {
+router.post('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => {
   const { content } = req.body;
   const { roomId } = req.params;
   const userId = req.user.userId;

@@ -69,18 +69,19 @@ const ChatWindow = ({
           flexDirection: 'column-reverse' // 關鍵：反向顯示，新訊息在下方
         }}
       >
+        <div ref={messagesEndRef} />
         <InfiniteScroll
           dataLength={messages.length}
           next={onLoadMore}
           hasMore={hasMoreMessages && !loadingMessages}
           loader={
             <div className="loading-more" style={{ textAlign: 'center', padding: '10px' }}>
-              📨 載入更多訊息...
+              Loading more messages...
             </div>
           }
           endMessage={
             <div className="no-more-messages" style={{ textAlign: 'center', padding: '10px', color: '#666' }}>
-              🎉 已載入所有訊息
+              end of messages
             </div>
           }
           scrollableTarget="scrollableDiv"
@@ -110,7 +111,7 @@ const ChatWindow = ({
             ))
           )}
         </InfiniteScroll>
-        <div ref={messagesEndRef} />
+        
       </div>
 
       <form onSubmit={onSendMessage} className="message-form">

@@ -55,7 +55,7 @@ router.get('/', authenticateToken, async (req, res) => {
       type: sequelize.QueryTypes.SELECT
     });
 
-    // 🆕 為每個聊天室查詢成員資訊
+    // 為每個聊天室查詢成員資訊
     const roomsWithMembers = await Promise.all(rooms.map(async (room) => {
       // 查詢最新訊息
       const latestMessage = await Message.findOne({
@@ -64,7 +64,7 @@ router.get('/', authenticateToken, async (req, res) => {
         order: [['createdAt', 'DESC']]
       });
 
-      // 🆕 查詢聊天室成員
+      // 查詢聊天室成員
       const members = await sequelize.query(`
         SELECT u."id", u."username", ru."createdAt" as "joinedAt"
         FROM "Users" u
