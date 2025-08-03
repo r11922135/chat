@@ -1,5 +1,8 @@
 const express = require('express');
-const { User, Message, sequelize } = require('../config/database');
+const logger = require('../utils/logger');
+const sequelize = require('../models');
+const User = require('../models/User');
+const Message = require('../models/Message');
 const { authenticateToken, checkRoomAccess } = require('../middleware/auth');
 
 const router = express.Router();
@@ -32,7 +35,7 @@ router.get('/:roomId/messages', authenticateToken, checkRoomAccess, async (req, 
       hasMore: messages.length === limit // 如果取滿 15 則，表示還有更多
     });
   } catch (err) {
-    console.error('Get messages error:', err);
+    logger.error('Get messages error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -56,7 +59,7 @@ router.post('/:roomId/messages', authenticateToken, checkRoomAccess, async (req,
     });
     
     // 🆕 更新聊天室的 updatedAt 時間，用於排序
-    console.log(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (發送訊息)`);
+    logger.info(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (發送訊息)`);
     await sequelize.query(
       'UPDATE "Rooms" SET "updatedAt" = NOW() WHERE "id" = :roomId',
       {
@@ -64,7 +67,7 @@ router.post('/:roomId/messages', authenticateToken, checkRoomAccess, async (req,
         type: sequelize.QueryTypes.UPDATE
       }
     );
-    console.log(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (發送訊息)`);
+    logger.info(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (發送訊息)`);
     
     // 返回完整的訊息資訊，包含發送者資訊
     const messageWithUser = await Message.findByPk(message.id, {
@@ -73,7 +76,7 @@ router.post('/:roomId/messages', authenticateToken, checkRoomAccess, async (req,
     
     res.status(201).json(messageWithUser);
   } catch (err) {
-    console.error('Send message error:', err);
+    logger.error('Send message error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

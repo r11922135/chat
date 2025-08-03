@@ -1,5 +1,10 @@
 const express = require('express');
-const { User, Room, RoomUser, Message, sequelize } = require('../config/database');
+const logger = require('../utils/logger');
+const sequelize = require('../models');
+const User = require('../models/User');
+const Room = require('../models/Room');
+const RoomUser = require('../models/RoomUser');
+const Message = require('../models/Message');
 const { authenticateToken, checkRoomAccess } = require('../middleware/auth');
 
 const router = express.Router();
@@ -23,13 +28,13 @@ const joinRoomSocket = (roomId, userIds, roomData) => {
     if (socket.userId && userIds.includes(socket.userId)) {
       socket.join(roomIdStr);
       joinedCount++;
-      console.log(`✅ 用戶 ${socket.userId} 已立即加入聊天室 ${roomId}`);
+      logger.info(`✅ 用戶 ${socket.userId} 已立即加入聊天室 ${roomId}`);
       
       socket.emit('new-room-created', { room: roomData });
     }
   });
   
-  console.log(`${joinedCount} 位在線用戶已加入聊天室 Socket 房間`);
+  logger.info(`${joinedCount} 位在線用戶已加入聊天室 Socket 房間`);
   return joinedCount;
 };
 
@@ -80,7 +85,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(roomsWithMembers);
   } catch (err) {
-    console.error('Get rooms error:', err);
+    logger.error('Get rooms error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -121,7 +126,7 @@ router.post('/', authenticateToken, async (req, res) => {
     
     res.status(201).json(roomData);
   } catch (err) {
-    console.error('Create room error:', err);
+    logger.error('Create room error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -154,7 +159,7 @@ router.post('/direct', authenticateToken, async (req, res) => {
     
     if (existingRooms.length > 0) {
       const room = existingRooms[0];
-      console.log('找到現有一對一聊天室:', room.id);
+      logger.info('找到現有一對一聊天室:', room.id);
       
       // 🆕 查詢現有聊天室的成員
       const members = await sequelize.query(`
@@ -181,7 +186,7 @@ router.post('/direct', authenticateToken, async (req, res) => {
       });
     }
     
-    console.log('未找到現有聊天室，創建新的一對一聊天室');
+    logger.info('未找到現有聊天室，創建新的一對一聊天室');
     
     const newRooms = await sequelize.query(`
       INSERT INTO "Rooms" (name, "isGroup", "createdAt", "updatedAt")
@@ -207,7 +212,7 @@ router.post('/direct', authenticateToken, async (req, res) => {
       type: sequelize.QueryTypes.INSERT
     });
     
-    console.log('新聊天室創建成功:', newRoom.id);
+    logger.info('新聊天室創建成功:', newRoom.id);
     
     // 🆕 查詢兩個用戶的資訊作為成員
     const members = await sequelize.query(`
@@ -239,7 +244,7 @@ router.post('/direct', authenticateToken, async (req, res) => {
     res.status(201).json(roomData);
     
   } catch (err) {
-    console.error('Create direct room error:', err);
+    logger.error('Create direct room error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -303,7 +308,7 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
     await RoomUser.bulkCreate(roomUsersToCreate);
     
     // 🆕 更新聊天室的 updatedAt 時間，用於排序
-    console.log(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (邀請用戶)`);
+    logger.info(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (邀請用戶)`);
     await sequelize.query(
       'UPDATE "Rooms" SET "updatedAt" = NOW() WHERE "id" = :roomId',
       {
@@ -311,7 +316,7 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
         type: sequelize.QueryTypes.UPDATE
       }
     );
-    console.log(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (邀請用戶)`);
+    logger.info(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (邀請用戶)`);
     
     // 🆕 查詢更新後的聊天室資訊（包含所有成員）
     const updatedRoom = await Room.findByPk(roomId, {
@@ -353,7 +358,7 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
     });
     
   } catch (err) {
-    console.error('Invite users error:', err);
+    logger.error('Invite users error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -372,7 +377,7 @@ router.post('/:roomId/mark-read', authenticateToken, checkRoomAccess, async (req
     
     res.json({ message: 'Room marked as read', timestamp: new Date() });
   } catch (err) {
-    console.error('Mark room as read error:', err);
+    logger.error('Mark room as read error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

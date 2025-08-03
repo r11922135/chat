@@ -1,5 +1,7 @@
 const express = require('express');
-const { User, sequelize } = require('../config/database');
+const logger = require('../utils/logger');
+const sequelize = require('../models');
+const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -28,7 +30,7 @@ router.get('/search', authenticateToken, async (req, res) => {
     
     res.json(users);
   } catch (err) {
-    console.error('Search users error:', err);
+    logger.error('Search users error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
