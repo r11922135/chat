@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import InfiniteScroll from 'react-infinite-scroll-component'
 import './ChatWindow.css'
 
 const ChatWindow = ({ 
@@ -10,13 +11,16 @@ const ChatWindow = ({
   onShowInviteModal,
   onBackToSidebar,
   currentUser,
-  isMobile 
+  isMobile,
+  onLoadMore,        // 新增：載入更多訊息的函數
+  hasMoreMessages,   // 新增：是否還有更多訊息
+  loadingMessages    // 新增：載入狀態
 }) => {
   const messagesEndRef = useRef(null)
 
-  useEffect(() => {
+  /*useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages])*/
 
   if (!selectedRoom) {
     return (
@@ -55,26 +59,59 @@ const ChatWindow = ({
         </div>
       </div>
 
-      <div className="messages-container">
-        {messages.length === 0 ? (
-          <div className="no-messages">No messages yet. Start the conversation!</div>
-        ) : (
-          messages.map(message => (
-            <div
-              key={message.id}
-              className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
-            >
-              <div className="message-header">
-                <span className="message-sender">{message.User.username}</span>
-                <span className="message-time">
-                  {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <div className="message-content">{message.content}</div>
-            </div>
-          ))
-        )}
+      <div 
+        className="messages-container"
+        id="scrollableDiv"
+        style={{ 
+          height: '400px', 
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column-reverse' // 關鍵：反向顯示，新訊息在下方
+        }}
+      >
         <div ref={messagesEndRef} />
+        <InfiniteScroll
+          dataLength={messages.length}
+          next={onLoadMore}
+          hasMore={hasMoreMessages && !loadingMessages}
+          loader={
+            <div className="loading-more" style={{ textAlign: 'center', padding: '10px' }}>
+              Loading more messages...
+            </div>
+          }
+          endMessage={
+            <div className="no-more-messages" style={{ textAlign: 'center', padding: '10px', color: '#666' }}>
+              end of messages
+            </div>
+          }
+          scrollableTarget="scrollableDiv"
+          inverse={true} // 關鍵：反向滾動，適合聊天應用
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column-reverse' 
+          }}
+        >
+          {messages.length === 0 ? (
+            <div className="no-messages">No messages yet. Start the conversation!</div>
+          ) : (
+            [...messages].reverse().map(message => (
+              <div
+                key={message.id}
+                className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
+                style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }} // 新增間距與美化
+              >
+                <div className="message-header">
+                  <span className="message-sender">{message.User.username}</span>
+                  <span className="message-time">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="message-content">{message.content}</div>
+              </div>
+            ))
+          )}
+        </InfiniteScroll>
+        
       </div>
 
       <form onSubmit={onSendMessage} className="message-form">

@@ -1,27 +1,26 @@
 const { Sequelize } = require('sequelize');
-const path = require('path');
 
-// 載入環境變數
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const config = require('../utils/config');
+const logger = require('../utils/logger');
 
-console.log('models/index.js - 資料庫配置:', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  ssl: process.env.NODE_ENV === 'production'
+logger.info('models/index.js - 資料庫配置:', {
+  host: config.DB_HOST,
+  port: config.DB_PORT,
+  database: config.DB_NAME,
+  user: config.DB_USER,
+  ssl: config.NODE_ENV === 'production'
 });
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
+  config.DB_NAME,
+  config.DB_USER,
+  config.DB_PASS,
   {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    host: config.DB_HOST,
+    port: config.DB_PORT,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: process.env.NODE_ENV === 'production' ? {
+      ssl: config.NODE_ENV === 'production' ? {
         require: true,
         rejectUnauthorized: false  // AWS RDS 需要這個設定
       } : false

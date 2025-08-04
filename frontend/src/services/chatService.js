@@ -50,16 +50,17 @@ const createRoom = async (roomData) => {
   return response.data
 }
 
-// 取得聊天室的訊息
-const getRoomMessages = async (roomId) => {
-  console.log('chatService.getRoomMessages 被調用, roomId:', roomId);
+// 取得聊天室的訊息 (基於 ID 的分頁)
+const getRoomMessages = async (roomId, beforeId = null) => {
+  console.log('chatService.getRoomMessages 被調用, roomId:', roomId, 'beforeId:', beforeId);
   const config = {
-    headers: getAuthHeaders()
+    headers: getAuthHeaders(),
+    params: beforeId ? { before: beforeId } : {}
   }
   console.log('請求配置:', config);
   
   try {
-    const response = await axios.get(`${baseURL}/rooms/${roomId}/messages`, config)
+    const response = await axios.get(`${baseURL}/messages/${roomId}`, config)
     console.log('API 回應:', response.data);
     return response.data
   } catch (error) {
@@ -76,7 +77,7 @@ const sendMessage = async (roomId, content) => {
   }
   
   const messageData = { content }
-  const response = await axios.post(`${baseURL}/rooms/${roomId}/messages`, messageData, config)
+  const response = await axios.post(`${baseURL}/messages/${roomId}`, messageData, config)
   return response.data
 }
 
