@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 });
 
 // API 路由
-app.use('/api', authController);
+app.use('/api/auth', authController);
 app.use('/api/users', userController);
 app.use('/api/rooms', roomController);
 app.use('/api/messages', messageController);

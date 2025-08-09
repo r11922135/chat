@@ -9,7 +9,7 @@ const { setupSocketHandlers } = require('./socket/socketHandlers');
 const { setIo } = require('./controllers/rooms');
 const sequelize = require('./models');
 
-// 創建伺服器
+// 建立伺服器
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: "*" }});
 

@@ -16,12 +16,12 @@ const baseURL = getBaseURL()
 console.log('🔗 API Base URL:', baseURL)
 
 const register = async (credentials) => {
-  const response = await axios.post(`${baseURL}/register`, credentials)
+  const response = await axios.post(`${baseURL}/auth/register`, credentials)
   return response.data
 }
 
 const login = async (credentials) => {
-  const response = await axios.post(`${baseURL}/login`, credentials)
+  const response = await axios.post(`${baseURL}/auth/login`, credentials)
   return response.data
 }
 
