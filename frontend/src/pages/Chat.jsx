@@ -106,20 +106,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               console.log('添加新訊息到列表')
               return [...prev, newMessage]
             })
-            
-            // 同時更新緩存
-            /*const cacheKey = currentRoom.id.toString()
-            setMessageCache(prevCache => {
-              const cachedData = prevCache.get(cacheKey)
-              if (cachedData) {
-                return new Map(prevCache).set(cacheKey, {
-                  ...cachedData,
-                  messages: [...cachedData.messages, newMessage]
-                })
-              }
-              return prevCache
-            })*/
-            
             // 【補強功能2】更新聊天室列表中的最新訊息預覽並移動到最上方
             // 當收到屬於當前聊天室的新訊息時，更新聊天室列表的最新訊息顯示
             setRooms(prev => {
@@ -195,17 +181,8 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             })
           }
         })
-
-
-
-
-
-
-
-
         // 3. 連接 Socket - 後端中間件會自動處理房間加入
         socketService.connect()
-        
         setError('')
       } catch (err) {
         console.error('Initialize chat error:', err)
@@ -242,15 +219,12 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   }, [])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: 'smooth'  
-    })
+    const scrollableDiv = document.getElementById('scrollableDiv')
+    if (scrollableDiv) {
+      scrollableDiv.scrollTop = scrollableDiv.scrollHeight
+    }
   }
 
-  // 當 messages 更新時自動滾動到底部
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
   // 選擇聊天室並載入訊息
   // 這是用戶點擊聊天室列表中的某個聊天室時觸發的函數
   // 載入初始訊息
@@ -324,7 +298,8 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       const cacheKey = room.id.toString()
       const cachedData = messageCache.get(cacheKey)
       
-      if (cachedData && cachedData.messages.length > 0) {
+      // 只有當緩存訊息數量 > 10 時才使用緩存，否則重新載入
+      if (cachedData && cachedData.messages.length > 10) {
         console.log('從緩存載入訊息:', cachedData.messages.length)
         setMessages(cachedData.messages)
         setHasMoreMessages(cachedData.hasMore)
@@ -367,25 +342,23 @@ const Chat = ({ onLogout, onAuthExpired }) => {
 
   // 這個函數處理用戶發送新訊息的邏輯
   const handleSendMessage = async (e) => {
-    e.preventDefault() // 阻止表單默認提交行為
+    e.preventDefault() // 阻止表單預設提交行為
     
     // 驗證輸入：檢查訊息內容和聊天室是否有效
     // trim() 移除前後空格，確保不發送空訊息
     if (!newMessage.trim() || !selectedRoom) return
 
-    // 【用戶體驗優化】立即清空輸入框
-    // 這提供即時反饋，讓用戶感覺訊息發送很快
-    // 即使後端處理有延遲，用戶也能立即開始輸入下一條訊息
+    // 立即清空輸入框
     const messageContent = newMessage.trim()
     setNewMessage('')
 
     try {
-      // 【新架構】先使用 API 儲存訊息到資料庫
+      // 先使用 API 儲存訊息到資料庫
       // API 負責：資料驗證、資料庫儲存、返回完整訊息物件
       const messageResponse = await chatService.sendMessage(selectedRoom.id, messageContent)
       console.log('API 儲存訊息成功:', messageResponse)
 
-      // 【新架構】再使用 Socket 發送即時訊息給其他用戶
+      // 再使用 Socket 發送即時訊息給其他用戶
       // Socket 負責：即時廣播給聊天室其他成員
       if (socketService.getSocket()?.connected) {
         // 使用 API 返回的完整訊息物件進行廣播
@@ -394,10 +367,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       } else {
         console.warn('Socket 未連接，無法即時廣播訊息')
       }
-      // 【更新當前用戶的訊息列表
+      // 更新當前用戶的訊息列表
       setMessages(prev => [...prev, messageResponse])
       // 送出訊息後自動滾動到底部
-      //setTimeout(scrollToBottom, 100)
+      setTimeout(scrollToBottom, 100)
       // 【標記聊天室為已讀】
       try {
         await chatService.markRoomAsRead(selectedRoom.id)
@@ -432,7 +405,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     } catch (err) {
       console.error('發送訊息失敗:', err)
       setError('Failed to send message')
-      // 【用戶體驗優化】發送失敗時恢復輸入框內容
+      // 發送失敗時恢復輸入框內容
       setNewMessage(messageContent)
     }
   }

@@ -16,11 +16,6 @@ const ChatWindow = ({
   hasMoreMessages,   // 新增：是否還有更多訊息
   loadingMessages    // 新增：載入狀態
 }) => {
-  const messagesEndRef = useRef(null)
-
-  /*useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])*/
 
   if (!selectedRoom) {
     return (
@@ -69,7 +64,6 @@ const ChatWindow = ({
           flexDirection: 'column-reverse' // 關鍵：反向顯示，新訊息在下方
         }}
       >
-        <div ref={messagesEndRef} />
         <InfiniteScroll
           dataLength={messages.length}
           next={onLoadMore}
