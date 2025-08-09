@@ -116,8 +116,8 @@ POST   /api/rooms/:id/mark-read - Mark room as read
 
 #### Messages | 消息
 ```
-GET    /api/rooms/:id/messages - Get room messages
-POST   /api/rooms/:id/messages - Send message to room
+GET    /api/messages/:roomId - Get room messages
+POST   /api/messages/:roomId - Send message to room
 ```
 
 #### Users | 用戶
