@@ -1,22 +1,16 @@
 const { createServer } = require('http');
-const { Server } = require('socket.io');
 
 const app = require('./app');
 const config = require('./utils/config');
 const logger = require('./utils/logger');
-const socketAuthMiddleware = require('./middleware/socketAuth');
-const { setupSocketHandlers } = require('./socket/socketHandlers');
-const { setIo } = require('./controllers/rooms');
+const { initializeSocketIO } = require('./socket/socketHandlers');
 const sequelize = require('./models');
 
 // 建立伺服器
 const server = createServer(app);
-const io = new Server(server, { cors: { origin: "*" }});
 
-// Socket.IO 設置
-io.use(socketAuthMiddleware);
-setupSocketHandlers(io);
-setIo(io);
+// 初始化 Socket.IO
+initializeSocketIO(server);
 
 // 啟動伺服器
 const startServer = async () => {

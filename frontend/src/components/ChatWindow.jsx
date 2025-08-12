@@ -85,24 +85,57 @@ const ChatWindow = ({
             flexDirection: 'column-reverse' 
           }}
         >
-          {messages.length === 0 ? (
+{messages.length === 0 ? (
             <div className="no-messages">No messages yet. Start the conversation!</div>
           ) : (
-            [...messages].reverse().map(message => (
-              <div
-                key={message.id}
-                className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
-                style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }} // 新增間距與美化
-              >
-                <div className="message-header">
-                  <span className="message-sender">{message.User.username}</span>
-                  <span className="message-time">
-                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <div className="message-content">{message.content}</div>
-              </div>
-            ))
+            (() => {
+              const elements = [];
+              let lastDate = null;
+
+              // 使用原始順序的訊息來處理日期分隔符
+              messages.forEach((message, index) => {
+                const messageDate = new Date(message.createdAt).toDateString();
+                
+                // 如果是新的一天，顯示日期分隔符
+                if (lastDate !== messageDate) {
+                  elements.push(
+                    <div key={`date-${messageDate}`} className="date-separator" style={{ 
+                      textAlign: 'center', 
+                      margin: '16px 0', 
+                      fontSize: '12px', 
+                      color: '#666',
+                      padding: '4px 0'
+                    }}>
+                      {new Date(message.createdAt).toLocaleDateString('zh-TW', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </div>
+                  );
+                  lastDate = messageDate;
+                }
+
+                elements.push(
+                  <div
+                    key={message.id}
+                    className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
+                    style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }} // 新增間距與美化
+                  >
+                    <div className="message-header">
+                      <span className="message-sender">{message.User.username}</span>
+                      <span className="message-time">
+                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="message-content">{message.content}</div>
+                  </div>
+                );
+              });
+
+              // 反轉整個元素陣列，這樣日期分隔符就會出現在正確的位置
+              return elements.reverse();
+            })()
           )}
         </InfiniteScroll>
         

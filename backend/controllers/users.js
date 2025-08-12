@@ -2,7 +2,7 @@ const express = require('express');
 const logger = require('../utils/logger');
 const sequelize = require('../models');
 const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken } = require('../utils/middleware');
 
 const router = express.Router();
 

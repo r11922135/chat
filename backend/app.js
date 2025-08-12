@@ -5,7 +5,7 @@ const path = require('path');
 // 導入控制器
 const authController = require('./controllers/auth');
 const userController = require('./controllers/users');
-const { router: roomController } = require('./controllers/rooms');
+const roomController = require('./controllers/rooms');
 const messageController = require('./controllers/messages');
 
 const app = express();

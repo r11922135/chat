@@ -5,38 +5,10 @@ const User = require('../models/User');
 const Room = require('../models/Room');
 const RoomUser = require('../models/RoomUser');
 const Message = require('../models/Message');
-const { authenticateToken, checkRoomAccess } = require('../middleware/auth');
+const { authenticateToken, checkRoomAccess } = require('../utils/middleware');
+const { getIO, joinRoomSocket } = require('../socket/socketHandlers');
 
 const router = express.Router();
-
-// 存儲 io 實例的變量
-let ioInstance = null;
-
-// 設置 io 實例的函數
-const setIo = (io) => {
-  ioInstance = io;
-};
-
-// 輔助函數：讓在線用戶加入新創建的房間
-const joinRoomSocket = (roomId, userIds, roomData) => {
-  if (!ioInstance) return 0;
-  
-  const roomIdStr = roomId.toString();
-  let joinedCount = 0;
-  
-  ioInstance.sockets.sockets.forEach((socket) => {
-    if (socket.userId && userIds.includes(socket.userId)) {
-      socket.join(roomIdStr);
-      joinedCount++;
-      logger.info(`✅ 用戶 ${socket.userId} 已立即加入聊天室 ${roomId}`);
-      
-      socket.emit('new-room-created', { room: roomData });
-    }
-  });
-  
-  logger.info(`${joinedCount} 位在線用戶已加入聊天室 Socket 房間`);
-  return joinedCount;
-};
 
 // 取得用戶所有聊天室（包含未讀訊息數量）
 router.get('/', authenticateToken, async (req, res) => {
@@ -45,7 +17,11 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const rooms = await sequelize.query(`
       SELECT r.*, ru."lastReadAt",
-             CAST((SELECT COUNT(*) FROM "Messages" m WHERE m."roomId" = r."id" AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) AS INTEGER) as "unreadCount"
+             CAST((SELECT COUNT(*) 
+             FROM "Messages" m 
+             WHERE m."roomId" = r."id" 
+             AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) AS INTEGER) 
+             as "unreadCount"
       FROM "Rooms" r
       JOIN "RoomUsers" ru ON r."id" = ru."roomId"
       WHERE ru."userId" = :userId
@@ -336,15 +312,32 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
       joinedAt: user.RoomUser.createdAt
     }));
     
+    // 🆕 查詢最新訊息
+    const latestMessage = await Message.findOne({
+      where: { roomId: updatedRoom.id },
+      include: [{ model: User, attributes: ['id', 'username'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // 🆕 計算這個聊天室的總訊息數（新加入成員的未讀數）
+    const totalMessagesCount = await sequelize.query(`
+      SELECT CAST(COUNT(*) AS INTEGER) as "totalCount"
+      FROM "Messages" m 
+      WHERE m."roomId" = :roomId
+    `, {
+      replacements: { roomId: updatedRoom.id },
+      type: sequelize.QueryTypes.SELECT
+    });
+    
     const roomData = {
       id: updatedRoom.id,
       name: updatedRoom.name,
       isGroup: updatedRoom.isGroup,
       createdAt: updatedRoom.createdAt,
       updatedAt: updatedRoom.updatedAt,
-      unreadCount: 0,
-      lastReadAt: null,
-      Messages: [],
+      unreadCount: totalMessagesCount[0].totalCount, // 🆕 新成員的未讀數 = 總訊息數
+      lastReadAt: null, // 🆕 新成員從未讀過
+      Messages: latestMessage ? [latestMessage] : [], // 🆕 顯示最新訊息
       members: members // 🆕 新增成員列表
     };
     
@@ -382,4 +375,4 @@ router.post('/:roomId/mark-read', authenticateToken, checkRoomAccess, async (req
   }
 });
 
-module.exports = { router, setIo };
+module.exports = router;

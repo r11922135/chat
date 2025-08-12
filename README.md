@@ -101,8 +101,8 @@ RoomUsers {
 
 #### Authentication | 身份驗證
 ```
-POST   /api/register          - Register new user
-POST   /api/login            - User login
+POST   /api/auth/register    - Register new user
+POST   /api/auth/login       - User login
 ```
 
 #### Rooms | 聊天室
