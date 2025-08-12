@@ -5,7 +5,7 @@ const path = require('path');
 // 導入控制器
 const authController = require('./controllers/auth');
 const userController = require('./controllers/users');
-const { router: roomController } = require('./controllers/rooms');
+const roomController = require('./controllers/rooms');
 const messageController = require('./controllers/messages');
 
 const app = express();
@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 });
 
 // API 路由
-app.use('/api', authController);
+app.use('/api/auth', authController);
 app.use('/api/users', userController);
 app.use('/api/rooms', roomController);
 app.use('/api/messages', messageController);

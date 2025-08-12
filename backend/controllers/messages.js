@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 const sequelize = require('../models');
 const User = require('../models/User');
 const Message = require('../models/Message');
-const { authenticateToken, checkRoomAccess } = require('../middleware/auth');
+const { authenticateToken, checkRoomAccess } = require('../utils/middleware');
 
 const router = express.Router();
 

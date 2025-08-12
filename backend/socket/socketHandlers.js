@@ -1,8 +1,37 @@
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const logger = require('../utils/logger');
 const User = require('../models/User');
 const Room = require('../models/Room');
 const RoomUser = require('../models/RoomUser');
 const Message = require('../models/Message');
+const socketAuthMiddleware = require('./socketAuth');
+
+// 存儲 io 實例
+let ioInstance = null;
+
+// 初始化 Socket.IO
+const initializeSocketIO = (server) => {
+  const io = new Server(server, { cors: { origin: "*" }});
+  
+  // 設置中間件和處理器
+  io.use(socketAuthMiddleware);
+  setupSocketHandlers(io);
+  
+  // 存儲實例以供其他模組使用
+  ioInstance = io;
+  
+  logger.info('Socket.IO server initialized');
+  return io;
+};
+
+// 獲取 io 實例
+const getIO = () => {
+  if (!ioInstance) {
+    throw new Error('Socket.IO not initialized. Call initializeSocketIO first.');
+  }
+  return ioInstance;
+};
 
 const setupSocketHandlers = (io) => {
   // Socket.IO 連接處理
@@ -134,18 +163,27 @@ const setupSocketHandlers = (io) => {
 };
 
 // 輔助函數：讓在線用戶加入新創建的房間
-const joinRoomSocket = (io, roomId, userIds) => {
+const joinRoomSocket = (roomId, userIds, roomData = null) => {
+  if (!ioInstance) {
+    logger.warn('Socket.IO not initialized, cannot join room');
+    return 0;
+  }
+  
   const roomIdStr = roomId.toString();
   let joinedCount = 0;
   
-  io.sockets.sockets.forEach((socket) => {
+  ioInstance.sockets.sockets.forEach((socket) => {
     if (socket.userId && userIds.includes(socket.userId)) {
       socket.join(roomIdStr);
       joinedCount++;
       logger.info(`✅ 用戶 ${socket.userId} 已立即加入聊天室 ${roomId}`);
       
-      // 可以發送房間創建通知
-      socket.emit('new-room-created', { roomId });
+      // 發送房間創建通知，如果有提供 roomData 則使用，否則只發送 roomId
+      if (roomData) {
+        socket.emit('new-room-created', { room: roomData });
+      } else {
+        socket.emit('new-room-created', { roomId });
+      }
     }
   });
   
@@ -153,4 +191,9 @@ const joinRoomSocket = (io, roomId, userIds) => {
   return joinedCount;
 };
 
-module.exports = { setupSocketHandlers, joinRoomSocket };
+module.exports = { 
+  initializeSocketIO, 
+  getIO, 
+  setupSocketHandlers, 
+  joinRoomSocket 
+};

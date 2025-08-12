@@ -55,7 +55,8 @@ const checkRoomAccess = async (req, res, next) => {
 
     next();
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    logger.error('Error in checkRoomAccess:', err);
+    res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 };
 
