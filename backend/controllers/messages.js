@@ -23,15 +23,12 @@ router.get('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => {
     const messages = await Message.findAll({
       where: whereClause,
       include: [{ model: User, attributes: ['id', 'username'] }],
-      order: [['id', 'DESC']], // 按 id 降序，取更舊的訊息
+      order: [['id', 'DESC']], // 按 id 降序，直接回傳由新到舊的順序
       limit: limit
     })
 
-    // 返回時反轉順序，讓最舊的在前面
-    const reversedMessages = messages.reverse()
-
     res.json({
-      messages: reversedMessages,
+      messages: messages, // 直接回傳，不要 reverse
       hasMore: messages.length === limit // 如果取滿 15 則，表示還有更多
     })
   } catch (err) {
