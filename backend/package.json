@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prestart": "echo '🔨 開始建置前端...' && cd ../frontend && npm install && npm run build && cd ../backend && echo '📁 複製前端檔案...' && cp -r ../frontend/dist ./dist && echo '✅ 建置完成'",
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -24,6 +24,10 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@stylistic/eslint-plugin-js": "^4.4.1",
+    "eslint": "^9.34.0",
+    "globals": "^16.3.0",
     "nodemon": "^3.1.10"
   }
 }
