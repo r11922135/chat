@@ -1,4 +1,3 @@
-const { createServer } = require('http')
 const { Server } = require('socket.io')
 const logger = require('../utils/logger')
 const User = require('../models/User')

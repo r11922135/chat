@@ -39,25 +39,47 @@ const authenticateToken = (req, res, next) => {
 }
 
 // 檢查用戶是否有權限存取指定聊天室的 middleware
+// Express 5 會自動捕捉 async 函數中的錯誤
 const checkRoomAccess = async (req, res, next) => {
-  try {
-    const { roomId } = req.params
-    const userId = req.user.userId
+  const { roomId } = req.params
+  const userId = req.user.userId
 
-    // 檢查用戶是否為聊天室成員
-    const roomUser = await RoomUser.findOne({
-      where: { roomId, userId }
-    })
+  // 檢查用戶是否為聊天室成員
+  const roomUser = await RoomUser.findOne({
+    where: { roomId, userId }
+  })
 
-    if (!roomUser) {
-      return res.status(403).json({ message: 'Access denied: not a member of this room' })
-    }
-
-    next()
-  } catch (err) {
-    logger.error('Error in checkRoomAccess:', err)
-    res.status(500).json({ message: 'Internal server error', error: err.message })
+  if (!roomUser) {
+    return res.status(403).json({ message: 'Access denied: not a member of this room' })
   }
+
+  next()
 }
 
-module.exports = { authenticateToken, checkRoomAccess }
+// 超簡單的錯誤處理中間件
+const errorHandler = (err, req, res, next) => {
+  // 記錄錯誤到 console
+  logger.error('錯誤:', err.message)
+
+  // 如果已經發送回應，就跳過
+  if (res.headersSent) {
+    return next(err)
+  }
+
+  // 統一的錯誤回應格式 - 全部都是 500
+  res.status(500).json({
+    message: err.message || 'Server error'
+  })
+}
+
+// 404 錯誤處理
+const notFound = (req, res) => {
+  res.status(404).json({ message: 'API route not found' })
+}
+
+module.exports = {
+  authenticateToken,
+  checkRoomAccess,
+  errorHandler,
+  notFound
+}
