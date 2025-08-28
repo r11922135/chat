@@ -3,7 +3,9 @@ const logger = require('../utils/logger')
 const sequelize = require('../models')
 const User = require('../models/User')
 const Message = require('../models/Message')
+const Room = require('../models/Room')
 const { authenticateToken, checkRoomAccess } = require('../utils/middleware')
+const { getIO } = require('../socket/socketHandlers')
 
 const router = express.Router()
 
@@ -60,10 +62,18 @@ router.post('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => 
   )
   logger.info(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (發送訊息)`)
 
-  // 返回完整的訊息資訊，包含發送者資訊
+  // 返回完整的訊息資訊，包含發送者資訊和聊天室資訊
   const messageWithUser = await Message.findByPk(message.id, {
-    include: [{ model: User, attributes: ['id', 'username'] }]
+    include: [
+      { model: User, attributes: ['id', 'username'] },
+      { model: Room, attributes: ['id', 'name'] }
+    ]
   })
+
+  // 使用 Socket.IO 廣播訊息給聊天室所有成員（包括發送者）
+  const io = getIO()
+  io.to(roomId.toString()).emit('new-message', messageWithUser)
+  logger.info(`訊息已通過 Socket 廣播到聊天室 ${roomId}`)
 
   res.status(201).json(messageWithUser)
 })

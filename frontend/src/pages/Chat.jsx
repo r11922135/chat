@@ -354,54 +354,14 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     setNewMessage('')
 
     try {
-      // 先使用 API 儲存訊息到資料庫
-      // API 負責：資料驗證、資料庫儲存、返回完整訊息物件
-      const messageResponse = await chatService.sendMessage(selectedRoom.id, messageContent)
-      console.log('API 儲存訊息成功:', messageResponse)
+      // 只需調用 API 發送訊息，後端會自動處理廣播
+      // API 負責：資料驗證、資料庫儲存、Socket廣播
+      await chatService.sendMessage(selectedRoom.id, messageContent)
+      console.log('訊息發送成功')
 
-      // 再使用 Socket 發送即時訊息給其他用戶
-      // Socket 負責：即時廣播給聊天室其他成員
-      if (socketService.getSocket()?.connected) {
-        // 使用 API 返回的完整訊息物件進行廣播
-        socketService.sendMessage(messageResponse)
-        console.log('Socket 廣播訊息成功:', messageResponse)
-      } else {
-        console.warn('Socket 未連接，無法即時廣播訊息')
-      }
-      // 更新當前用戶的訊息列表，新訊息加到前面（由新到舊順序）
-      setMessages(prev => [messageResponse, ...prev])
       // 送出訊息後自動滾動到底部
       setTimeout(scrollToBottom, 100)
-      // 【標記聊天室為已讀】
-      try {
-        await chatService.markRoomAsRead(selectedRoom.id)
-        console.log('發送訊息後已標記聊天室為已讀')
-      } catch (readErr) {
-        console.error('標記已讀失敗:', readErr)
-      }
       
-      //【更新聊天室列表中的最新訊息預覽並移動到最上方】
-      setRooms(prev => {
-        const updatedRooms = prev.map(room => {
-          if (room.id === selectedRoom.id) {
-            return {
-              ...room,
-              Messages: [{
-                id: messageResponse.id,
-                content: messageResponse.content,
-                createdAt: messageResponse.createdAt,
-                User: messageResponse.User
-              }],
-              unreadCount: 0, // 發送者看到的是已讀狀態
-              lastReadAt: new Date()
-            }
-          }
-          return room
-        })
-        const targetRoom = updatedRooms.find(room => room.id === selectedRoom.id)
-        const otherRooms = updatedRooms.filter(room => room.id !== selectedRoom.id)
-        return [targetRoom, ...otherRooms]
-      })
       setError('')
     } catch (err) {
       console.error('發送訊息失敗:', err)
