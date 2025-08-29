@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('./index');
+const { DataTypes } = require('sequelize')
+const sequelize = require('./index')
 
 const Room = sequelize.define('Room', {
   name: {
@@ -10,6 +10,6 @@ const Room = sequelize.define('Room', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
-});
+})
 
-module.exports = Room;
+module.exports = Room

@@ -1,7 +1,7 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('./index');
-const User = require('./User');
-const Room = require('./Room');
+const { DataTypes } = require('sequelize')
+const sequelize = require('./index')
+const User = require('./User')
+const Room = require('./Room')
 
 const RoomUser = sequelize.define('RoomUser', {
   // 用戶最後閱讀訊息的時間
@@ -12,13 +12,13 @@ const RoomUser = sequelize.define('RoomUser', {
     defaultValue: null        // 預設值為 null
   }
   // 可加上其他欄位如角色、加入時間等
-});
+})
 
-Room.belongsToMany(User, { through: RoomUser, foreignKey: 'roomId' });
-User.belongsToMany(Room, { through: RoomUser, foreignKey: 'userId' });
+Room.belongsToMany(User, { through: RoomUser, foreignKey: 'roomId' })
+User.belongsToMany(Room, { through: RoomUser, foreignKey: 'userId' })
 
 // 🆕 為了支援 RoomUser.include([Room, User]) 查詢，需要定義 belongsTo 關係
-RoomUser.belongsTo(Room, { foreignKey: 'roomId' });
-RoomUser.belongsTo(User, { foreignKey: 'userId' });
+RoomUser.belongsTo(Room, { foreignKey: 'roomId' })
+RoomUser.belongsTo(User, { foreignKey: 'userId' })
 
-module.exports = RoomUser;
+module.exports = RoomUser

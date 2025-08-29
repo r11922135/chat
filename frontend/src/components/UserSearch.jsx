@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import chatService from '../services/chatService'
 import './UserSearch.css'
 
@@ -7,6 +7,16 @@ const UserSearch = ({ onStartChat, onClose }) => {
   const [searchResults, setSearchResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // 使用 useEffect 和 setTimeout 實現 debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchUsers(searchQuery)
+    }, 500) // 延遲 500ms
+
+    // 清理函數：如果 searchQuery 在 500ms 內再次變化，就取消之前的搜尋
+    return () => clearTimeout(timer)
+  }, [searchQuery]) // 當 searchQuery 變化時觸發
 
   // 搜尋用戶
   const searchUsers = async (query) => {
@@ -61,7 +71,7 @@ const UserSearch = ({ onStartChat, onClose }) => {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
-                searchUsers(e.target.value)
+                // 移除直接呼叫 searchUsers，改由 useEffect 的 debounce 處理
               }}
               placeholder="輸入用戶名稱搜尋..."
             />

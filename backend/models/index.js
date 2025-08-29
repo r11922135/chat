@@ -1,7 +1,7 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require('sequelize')
 
-const config = require('../utils/config');
-const logger = require('../utils/logger');
+const config = require('../utils/config')
+const logger = require('../utils/logger')
 
 logger.info('models/index.js - 資料庫配置:', {
   host: config.DB_HOST,
@@ -9,7 +9,7 @@ logger.info('models/index.js - 資料庫配置:', {
   database: config.DB_NAME,
   user: config.DB_USER,
   ssl: config.NODE_ENV === 'production'
-});
+})
 
 const sequelize = new Sequelize(
   config.DB_NAME,
@@ -33,6 +33,6 @@ const sequelize = new Sequelize(
     },
     logging: false
   }
-);
+)
 
-module.exports = sequelize;
+module.exports = sequelize
