@@ -416,9 +416,10 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         return prev
       })
       
-      // 選擇新建的聊天室
-      setSelectedRoom(room)
       setShowUserSearch(false)
+      
+      // 使用現有的 selectRoom 函數來正確載入訊息
+      await selectRoom(room)
     } catch (err) {
       console.error('Start direct chat error:', err)
       alert('開啟聊天失敗，請重試')
