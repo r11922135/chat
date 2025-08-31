@@ -123,14 +123,36 @@ const createDirectRoom = async (targetUserId) => {
   return response.data
 }
 
+// 獲取聊天室成員列表
+const getRoomMembers = async (roomId) => {
+  const config = {
+    headers: getAuthHeaders()
+  }
+  
+  const response = await axios.get(`${baseURL}/rooms/${roomId}/members`, config)
+  return response.data
+}
+
+// 離開聊天室
+const leaveRoom = async (roomId) => {
+  const config = {
+    headers: getAuthHeaders()
+  }
+  
+  const response = await axios.delete(`${baseURL}/rooms/${roomId}/leave`, config)
+  return response.data
+}
+
 export default {
   getUserRooms,
   getRooms,
   createRoom,
-  createDirectRoom, // 🆕 新增這個方法
+  createDirectRoom,
   getRoomMessages,
   sendMessage,
   searchUsers,
   inviteUsers,
-  markRoomAsRead
+  markRoomAsRead,
+  getRoomMembers,
+  leaveRoom
 }

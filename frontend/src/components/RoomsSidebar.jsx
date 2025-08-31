@@ -60,7 +60,11 @@ const RoomsSidebar = ({
               </div>
               {room.Messages && room.Messages.length > 0 ? (
                 <div className="last-message">
-                  <span className="sender">{room.Messages[0].User.username}:</span>
+                  <span className="sender">
+                    {room.Messages[0].type === 'system' 
+                      ? '' 
+                      : <> {room.Messages[0].User?.username || 'Unknown'}:</>}
+                  </span>
                   <span className="content">{room.Messages[0].content}</span>
                   <span className="time">
                     {formatRoomTime(room.Messages[0].createdAt)}

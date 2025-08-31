@@ -8,9 +8,21 @@ const Message = sequelize.define('Message', {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+  type: {
+    type: DataTypes.ENUM('user', 'system'),
+    allowNull: false,
+    defaultValue: 'user',
+  },
+  systemData: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+  },
 })
 
-Message.belongsTo(User, { foreignKey: 'userId' })
+Message.belongsTo(User, {
+  foreignKey: 'userId',
+  allowNull: true
+})
 Message.belongsTo(Room, { foreignKey: 'roomId' })
 Room.hasMany(Message, { foreignKey: 'roomId' })
 User.hasMany(Message, { foreignKey: 'userId' })

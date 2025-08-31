@@ -74,6 +74,28 @@
   gap: 10px;
 }
 
+.members-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.members-btn:hover {
+  background-color: #5a6268;
+}
+
+.members-btn:active {
+  transform: translateY(1px);
+}
+
 .invite-btn {
   background-color: #28a745;
   color: white;
@@ -120,12 +142,14 @@
 .no-room-selected h3 {
   margin: 0 0 10px 0;
   color: #333;
-  font-size: 1.3rem;
+  font-size: 1rem;
+  font-style: normal;
 }
 
 .no-room-selected p {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  font-style: normal;
 }
 
 .message {
@@ -177,6 +201,17 @@
 
 .message-content {
   line-height: 1.4;
+}
+
+
+.system-content {
+  font-weight: 500;
+}
+
+.system-time {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  opacity: 0.8;
 }
 
 .message-form {

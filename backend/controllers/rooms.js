@@ -7,6 +7,7 @@ const RoomUser = require('../models/RoomUser')
 const Message = require('../models/Message')
 const { authenticateToken, checkRoomAccess } = require('../utils/middleware')
 const { joinRoomSocket } = require('../socket/socketHandlers')
+const { SystemMessageTypes, createSystemMessage } = require('../utils/systemMessages')
 
 const router = express.Router()
 
@@ -266,6 +267,20 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
 
   await RoomUser.bulkCreate(roomUsersToCreate)
 
+  // 只有群組聊天室才創建系統訊息
+  if (room.isGroup) {
+    // 為每個新加入的用戶創建系統訊息
+    for (const userId of newMemberIds) {
+      const user = users.find(u => u.id === userId)
+      if (user) {
+        await createSystemMessage(roomId, SystemMessageTypes.USER_JOINED, {
+          userId: user.id,
+          username: user.username
+        })
+      }
+    }
+  }
+
   // 🆕 更新聊天室的 updatedAt 時間，用於排序
   logger.info(`📝 準備更新聊天室 ${roomId} 的 updatedAt 時間 (邀請用戶)`)
   await sequelize.query(
@@ -346,6 +361,58 @@ router.post('/:roomId/mark-read', authenticateToken, checkRoomAccess, async (req
   )
 
   res.json({ message: 'Room marked as read', timestamp: new Date() })
+})
+
+// 離開聊天室
+router.delete('/:roomId/leave', authenticateToken, checkRoomAccess, async (req, res) => {
+  const { roomId } = req.params
+  const userId = req.user.userId
+
+  // 檢查聊天室類型
+  const room = await Room.findByPk(roomId)
+  if (!room) {
+    return res.status(404).json({ message: 'Room not found' })
+  }
+
+  // 獲取用戶資訊
+  const user = await User.findByPk(userId, {
+    attributes: ['id', 'username']
+  })
+
+  // 從聊天室中移除用戶
+  await RoomUser.destroy({
+    where: { roomId, userId }
+  })
+
+  // 只有群組聊天室才創建系統訊息
+  if (room.isGroup) {
+    await createSystemMessage(roomId, SystemMessageTypes.USER_LEFT, {
+      userId: user.id,
+      username: user.username
+    })
+  }
+
+  logger.info(`User ${user.username} left room ${roomId}`)
+
+  res.json({ message: 'Successfully left the room' })
+})
+
+// 獲取聊天室成員列表
+router.get('/:roomId/members', authenticateToken, checkRoomAccess, async (req, res) => {
+  const { roomId } = req.params
+
+  const members = await sequelize.query(`
+    SELECT u."id", u."username", ru."createdAt" as "joinedAt"
+    FROM "Users" u
+    JOIN "RoomUsers" ru ON u."id" = ru."userId"
+    WHERE ru."roomId" = :roomId
+    ORDER BY ru."createdAt" ASC
+  `, {
+    replacements: { roomId },
+    type: sequelize.QueryTypes.SELECT
+  })
+
+  res.json(members)
 })
 
 module.exports = router

@@ -25,11 +25,9 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
   
-  const messagesEndRef = useRef(null)
   const selectedRoomRef = useRef(selectedRoom)
   
   const currentUser = localStorage.getItem('chatUsername')       // 用戶名
-  const currentUserId = localStorage.getItem('chatUserId')       // 用戶 ID
   const token = localStorage.getItem('chatToken')                // 身份驗證 token
 
   useEffect(() => {
@@ -444,6 +442,23 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       })
   }
 
+  // 離開聊天室處理
+  const handleRoomLeft = (roomId) => {
+    // 從聊天室列表中移除該聊天室
+    setRooms(prev => prev.filter(room => room.id !== roomId))
+    
+    // 如果當前選中的是被離開的聊天室，清空選中狀態
+    if (selectedRoom && selectedRoom.id === roomId) {
+      setSelectedRoom(null)
+      setMessages([])
+      
+      // 手機模式下返回聊天室列表
+      if (isMobile) {
+        setShowSidebar(true)
+      }
+    }
+  }
+
   // 新增獲取聊天室顯示名稱的函數
   const getRoomDisplayName = (room) => {
     //console.log('getRoomDisplayName - room:', room)
@@ -511,6 +526,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             onLoadMore={loadMoreMessages}
             hasMoreMessages={hasMoreMessages}
             loadingMessages={loadingMessages}
+            onRoomLeft={handleRoomLeft}
           />
         )}
 
@@ -540,6 +556,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               onLoadMore={loadMoreMessages}
               hasMoreMessages={hasMoreMessages}
               loadingMessages={loadingMessages}
+              onRoomLeft={handleRoomLeft}
             />
           </>
         )}

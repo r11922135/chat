@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import chatService from '../services/chatService'
-import socketService from '../services/socketService'
 import './InviteUsers.css'
 
 const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
