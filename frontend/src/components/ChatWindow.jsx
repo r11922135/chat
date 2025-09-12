@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import MembersList from './MembersList'
+import InviteUsers from './InviteUsers'
 import './ChatWindow.css'
 
 const ChatWindow = ({ 
@@ -9,16 +10,16 @@ const ChatWindow = ({
   newMessage, 
   onSendMessage, 
   onMessageChange,
-  onShowInviteModal,
   onBackToSidebar,
   currentUser,
   isMobile,
   onLoadMore,        // 新增：載入更多訊息的函數
   hasMoreMessages,   // 新增：是否還有更多訊息
   loadingMessages,   // 新增：載入狀態
-  onRoomLeft        // 新增：離開聊天室回調
+  onRoomLeft,        // 新增：離開聊天室回調
 }) => {
   const [showMembersList, setShowMembersList] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   if (!selectedRoom) {
     return (
@@ -33,7 +34,7 @@ const ChatWindow = ({
 
   const roomDisplayName = selectedRoom.isGroup 
     ? (selectedRoom.name || 'Unnamed Group')
-    : (selectedRoom.members?.find(member => member.username !== currentUser)?.username || selectedRoom.name || 'Direct Message')
+    : (selectedRoom.name || 'Direct Message')
 
   return (
     <div className={`chat-window ${isMobile ? 'mobile' : ''}`}>
@@ -55,7 +56,7 @@ const ChatWindow = ({
           {selectedRoom.isGroup && (
             <button 
               className="invite-btn"
-              onClick={onShowInviteModal}
+              onClick={() => setShowInviteModal(true)}
               title="邀請用戶加入聊天室"
             >
               Invite Users
@@ -193,6 +194,16 @@ const ChatWindow = ({
           currentUser={currentUser}
           onClose={() => setShowMembersList(false)}
           onLeaveRoom={onRoomLeft}
+        />
+      )}
+      
+      {showInviteModal && selectedRoom && (
+        <InviteUsers
+          room={selectedRoom}
+          onClose={() => setShowInviteModal(false)}
+          onInviteSuccess={() => {
+            setShowInviteModal(false)
+          }}
         />
       )}
     </div>

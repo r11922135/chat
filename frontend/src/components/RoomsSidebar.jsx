@@ -5,8 +5,7 @@ const RoomsSidebar = ({
   selectedRoom, 
   onSelectRoom, 
   onCreateRoom, 
-  onShowUserSearch, 
-  getRoomDisplayName,
+  onShowUserSearch,
   error,
   isMobile 
 }) => {
@@ -50,9 +49,14 @@ const RoomsSidebar = ({
               onClick={() => onSelectRoom(room)}
             >
               <div className="room-header">
-                <div className="room-name">{getRoomDisplayName(room)}</div>
+                <div className="room-name">
+                  <span className="room-display-name">
+                    <span className="room-icon">{room.isGroup ? '👥' : '👤'}</span>
+                    {room.name}
+                  </span>
+                </div>
                 <div className="room-badges">
-                  <div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>
+                  {/* <div className="room-type">{room.isGroup ? 'Group' : 'Direct'}</div>*/}
                   {room.unreadCount > 0 && (
                     <div className="unread-badge">{room.unreadCount}</div>
                   )}

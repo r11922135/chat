@@ -15,51 +15,73 @@ const router = express.Router()
 router.get('/', authenticateToken, async (req, res) => {
   const userId = req.user.userId
 
-  const rooms = await sequelize.query(`
-    SELECT r.*, ru."lastReadAt",
-           CAST((SELECT COUNT(*) 
-           FROM "Messages" m 
-           WHERE m."roomId" = r."id" 
-           AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')) AS INTEGER) 
-           as "unreadCount"
+  // 一次查詢取得所有需要的資料
+  const roomsData = await sequelize.query(`
+    WITH LatestMessages AS (
+      SELECT DISTINCT ON (m."roomId")
+        m."roomId",
+        json_build_object(
+          'id', m."id",
+          'content', m."content",
+          'createdAt', m."createdAt",
+          'User', json_build_object(
+            'id', u."id",
+            'username', u."username"
+          )
+        ) as latest_message
+      FROM "Messages" m
+      JOIN "Users" u ON m."userId" = u."id"
+      WHERE m."roomId" IN (
+        SELECT DISTINCT r."id" 
+        FROM "Rooms" r
+        JOIN "RoomUsers" ru ON r."id" = ru."roomId"
+        WHERE ru."userId" = :userId
+      )
+      ORDER BY m."roomId", m."createdAt" DESC
+    ),
+    DirectMessageNames AS (
+      SELECT 
+        r."id" as "roomId",
+        other_user."username" as "otherUsername"
+      FROM "Rooms" r
+      JOIN "RoomUsers" ru1 ON r."id" = ru1."roomId" AND ru1."userId" = :userId
+      JOIN "RoomUsers" ru2 ON r."id" = ru2."roomId" AND ru2."userId" != :userId
+      JOIN "Users" other_user ON other_user."id" = ru2."userId"
+      WHERE r."isGroup" = false
+    )
+    SELECT 
+      r."id",
+      CASE 
+        WHEN r."isGroup" = true THEN r."name"
+        ELSE COALESCE(dmn."otherUsername", r."name")
+      END as "name",
+      r."isGroup",
+      r."createdAt",
+      r."updatedAt",
+      ru."lastReadAt",
+      CAST(COALESCE((
+        SELECT COUNT(*)
+        FROM "Messages" m 
+        WHERE m."roomId" = r."id" 
+        AND m."createdAt" > COALESCE(ru."lastReadAt", '1970-01-01')
+      ), 0) AS INTEGER) as "unreadCount",
+      CASE 
+        WHEN lm.latest_message IS NOT NULL 
+        THEN json_build_array(lm.latest_message)
+        ELSE '[]'::json
+      END as "Messages"
     FROM "Rooms" r
     JOIN "RoomUsers" ru ON r."id" = ru."roomId"
+    LEFT JOIN DirectMessageNames dmn ON r."id" = dmn."roomId"
+    LEFT JOIN LatestMessages lm ON r."id" = lm."roomId"
     WHERE ru."userId" = :userId
     ORDER BY r."updatedAt" DESC
   `, {
-    replacements: { userId: userId },
+    replacements: { userId },
     type: sequelize.QueryTypes.SELECT
   })
 
-  // 為每個聊天室查詢成員資訊
-  const roomsWithMembers = await Promise.all(rooms.map(async (room) => {
-    // 查詢最新訊息
-    const latestMessage = await Message.findOne({
-      where: { roomId: room.id },
-      include: [{ model: User, attributes: ['id', 'username'] }],
-      order: [['createdAt', 'DESC']]
-    })
-
-    // 查詢聊天室成員
-    const members = await sequelize.query(`
-      SELECT u."id", u."username", ru."createdAt" as "joinedAt"
-      FROM "Users" u
-      JOIN "RoomUsers" ru ON u."id" = ru."userId"
-      WHERE ru."roomId" = :roomId
-      ORDER BY ru."createdAt" ASC
-    `, {
-      replacements: { roomId: room.id },
-      type: sequelize.QueryTypes.SELECT
-    })
-
-    return {
-      ...room,
-      Messages: latestMessage ? [latestMessage] : [],
-      members: members // 🆕 新增成員列表
-    }
-  }))
-
-  res.json(roomsWithMembers)
+  res.json(roomsData)
 })
 
 // 建立聊天室
@@ -71,11 +93,6 @@ router.post('/', authenticateToken, async (req, res) => {
   const creatorId = req.user.userId
   await room.setUsers([creatorId])
 
-  // 查詢建立者資訊作為成員
-  const creator = await User.findByPk(creatorId, {
-    attributes: ['id', 'username']
-  })
-
   const roomData = {
     id: room.id,
     name: room.name,
@@ -84,12 +101,7 @@ router.post('/', authenticateToken, async (req, res) => {
     updatedAt: room.updatedAt,
     unreadCount: 0,
     lastReadAt: null,
-    Messages: [],
-    members: [{
-      id: creator.id,
-      username: creator.username,
-      joinedAt: new Date()
-    }]
+    Messages: []
   }
 
   // Socket 房間加入邏輯
@@ -127,28 +139,20 @@ router.post('/direct', authenticateToken, async (req, res) => {
     const room = existingRooms[0]
     logger.info('找到現有一對一聊天室:', room.id)
 
-    // 🆕 查詢現有聊天室的成員
-    const members = await sequelize.query(`
-      SELECT u."id", u."username", ru."createdAt" as "joinedAt"
-      FROM "Users" u
-      JOIN "RoomUsers" ru ON u."id" = ru."userId"
-      WHERE ru."roomId" = :roomId
-      ORDER BY ru."createdAt" ASC
-    `, {
-      replacements: { roomId: room.id },
-      type: sequelize.QueryTypes.SELECT
+    // 查詢對方用戶名作為房間名稱
+    const otherUser = await User.findByPk(targetUserId, {
+      attributes: ['username']
     })
 
     return res.json({
       id: room.id,
-      name: room.name,
+      name: otherUser.username,
       isGroup: room.isGroup,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
       unreadCount: 0,
       lastReadAt: room.lastReadAt,
-      Messages: [],
-      members: members // 🆕 新增成員列表
+      Messages: []
     })
   }
 
@@ -180,28 +184,20 @@ router.post('/direct', authenticateToken, async (req, res) => {
 
   logger.info('新聊天室創建成功:', newRoom.id)
 
-  // 🆕 查詢兩個用戶的資訊作為成員
-  const members = await sequelize.query(`
-    SELECT u."id", u."username", ru."createdAt" as "joinedAt"
-    FROM "Users" u
-    JOIN "RoomUsers" ru ON u."id" = ru."userId"
-    WHERE ru."roomId" = :roomId
-    ORDER BY ru."createdAt" ASC
-  `, {
-    replacements: { roomId: newRoom.id },
-    type: sequelize.QueryTypes.SELECT
+  // 查詢對方用戶名作為房間名稱
+  const otherUser = await User.findByPk(targetUserId, {
+    attributes: ['username']
   })
 
   const roomData = {
     id: newRoom.id,
-    name: newRoom.name,
+    name: otherUser.username,
     isGroup: newRoom.isGroup,
     createdAt: newRoom.createdAt,
     updatedAt: newRoom.updatedAt,
     unreadCount: 0,
     lastReadAt: null,
-    Messages: [],
-    members: members // 🆕 新增成員列表
+    Messages: []
   }
 
   // Socket 房間加入邏輯
@@ -292,32 +288,17 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
   )
   logger.info(`✅ 聊天室 ${roomId} 的 updatedAt 已更新 (邀請用戶)`)
 
-  // 🆕 查詢更新後的聊天室資訊（包含所有成員）
-  const updatedRoom = await Room.findByPk(roomId, {
-    include: [
-      {
-        model: User,
-        through: { attributes: ['createdAt'] },
-        attributes: ['id', 'username']
-      }
-    ]
-  })
+  // 查詢更新後的聊天室資訊
+  const updatedRoom = await Room.findByPk(roomId)
 
-  // 🆕 格式化成員資訊
-  const members = updatedRoom.Users.map(user => ({
-    id: user.id,
-    username: user.username,
-    joinedAt: user.RoomUser.createdAt
-  }))
-
-  // 🆕 查詢最新訊息
+  // 查詢最新訊息
   const latestMessage = await Message.findOne({
     where: { roomId: updatedRoom.id },
     include: [{ model: User, attributes: ['id', 'username'] }],
     order: [['createdAt', 'DESC']]
   })
 
-  // 🆕 計算這個聊天室的總訊息數（新加入成員的未讀數）
+  // 計算這個聊天室的總訊息數（新加入成員的未讀數）
   const totalMessagesCount = await sequelize.query(`
     SELECT CAST(COUNT(*) AS INTEGER) as "totalCount"
     FROM "Messages" m 
@@ -333,10 +314,9 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
     isGroup: updatedRoom.isGroup,
     createdAt: updatedRoom.createdAt,
     updatedAt: updatedRoom.updatedAt,
-    unreadCount: totalMessagesCount[0].totalCount, // 🆕 新成員的未讀數 = 總訊息數
-    lastReadAt: null, // 🆕 新成員從未讀過
-    Messages: latestMessage ? [latestMessage] : [], // 🆕 顯示最新訊息
-    members: members // 🆕 新增成員列表
+    unreadCount: totalMessagesCount[0].totalCount,
+    lastReadAt: null,
+    Messages: latestMessage ? [latestMessage] : []
   }
 
   // Socket 房間加入邏輯
@@ -345,7 +325,7 @@ router.post('/:roomId/invite', authenticateToken, async (req, res) => {
   res.json({
     message: 'Users invited successfully',
     invitedCount: newMemberIds.length,
-    room: roomData // 🆕 返回包含成員資訊的聊天室資料
+    room: roomData
   })
 })
 

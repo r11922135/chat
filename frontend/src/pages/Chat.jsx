@@ -4,7 +4,6 @@ import socketService from '../services/socketService'
 import ChatHeader from '../components/ChatHeader'
 import RoomsSidebar from '../components/RoomsSidebar'
 import ChatWindow from '../components/ChatWindow'
-import InviteUsers from '../components/InviteUsers'
 import UserSearch from '../components/UserSearch'
 import './Chat.css'
 
@@ -15,7 +14,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showInviteModal, setShowInviteModal] = useState(false)
   const [showUserSearch, setShowUserSearch] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 650)
   const [showSidebar, setShowSidebar] = useState(true)
@@ -54,7 +52,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         // 2. 設定 Socket 連接成功後的回調
         // 🆕 在 Socket 連接成功後註冊新聊天室監聽器
         socketService.setOnNewRoomCallback((data) => {
-          console.log('收到新聊天室:', data.room);
+          console.log('被加入新聊天室:', data.room);
           // 將新聊天室加入列表
           setRooms(prev => {
             const exists = prev.find(room => room.id === data.room.id);
@@ -424,24 +422,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     }
   }
 
-  // 邀請成功後的處理
-  const handleInviteSuccess = (room) => {
-    setShowInviteModal(false)
-    // 重新載入聊天室資訊以更新成員列表
-    setRooms(prev => {
-        const updatedRooms = prev.map(r => {
-          if (r.id === room.id) {
-            return {
-              ...r,
-              members: room.members
-            }
-          }
-          return r
-        })
-        return updatedRooms
-      })
-  }
-
   // 離開聊天室處理
   const handleRoomLeft = (roomId) => {
     // 從聊天室列表中移除該聊天室
@@ -456,32 +436,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       if (isMobile) {
         setShowSidebar(true)
       }
-    }
-  }
-
-  // 新增獲取聊天室顯示名稱的函數
-  const getRoomDisplayName = (room) => {
-    //console.log('getRoomDisplayName - room:', room)
-    //console.log('getRoomDisplayName - currentUser:', currentUser)
-    //console.log('getRoomDisplayName - room.members:', room.members)
-    if (room.isGroup) {
-      return (
-        <span className="room-display-name">
-          <span className="room-icon group-icon">👥</span>
-          {room.name || 'Unnamed Group'}
-        </span>
-      )
-    } else {
-      // 🆕 一對一聊天室：顯示對方的名字
-      const otherMember = room.members?.find(member => member.username !== currentUser)
-      const displayName = otherMember?.username || room.name || 'Direct Message'
-      
-      return (
-        <span className="room-display-name">
-          <span className="room-icon direct-icon">👤</span>
-          {displayName}
-        </span>
-      )
     }
   }
 
@@ -505,7 +459,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             onSelectRoom={selectRoom}
             onCreateRoom={handleCreateRoom}
             onShowUserSearch={() => setShowUserSearch(true)}
-            getRoomDisplayName={getRoomDisplayName}
             error={error}
             isMobile={true}
           />
@@ -519,7 +472,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
             newMessage={newMessage}
             onSendMessage={handleSendMessage}
             onMessageChange={(e) => setNewMessage(e.target.value)}
-            onShowInviteModal={() => setShowInviteModal(true)}
             onBackToSidebar={handleBackToSidebar}
             currentUser={currentUser}
             isMobile={true}
@@ -539,7 +491,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               onSelectRoom={selectRoom}
               onCreateRoom={handleCreateRoom}
               onShowUserSearch={() => setShowUserSearch(true)}
-              getRoomDisplayName={getRoomDisplayName}
               error={error}
               isMobile={false}
             />
@@ -549,7 +500,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
               newMessage={newMessage}
               onSendMessage={handleSendMessage}
               onMessageChange={(e) => setNewMessage(e.target.value)}
-              onShowInviteModal={() => setShowInviteModal(true)}
               onBackToSidebar={handleBackToSidebar}
               currentUser={currentUser}
               isMobile={false}
@@ -563,13 +513,6 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       </div>
 
       {/* 模態窗口 */}
-      {showInviteModal && selectedRoom && (
-        <InviteUsers
-          room={selectedRoom}
-          onClose={() => setShowInviteModal(false)}
-          onInviteSuccess={handleInviteSuccess}
-        />
-      )}
       {showUserSearch && (
         <UserSearch
           onStartChat={handleStartDirectChat}
