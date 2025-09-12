@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import chatService from '../services/chatService'
+import InviteUsers from './InviteUsers'
 import './MembersList.css'
 
 const MembersList = ({ room, onClose, currentUser }) => {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showInviteUsers, setShowInviteUsers] = useState(false)
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -48,6 +50,20 @@ const MembersList = ({ room, onClose, currentUser }) => {
     })
   }
 
+  const handleInviteSuccess = () => {
+    // Refresh members list after successful invite
+    const fetchMembers = async () => {
+      try {
+        const membersData = await chatService.getRoomMembers(room.id)
+        setMembers(membersData)
+      } catch (err) {
+        console.error('Error refreshing members:', err)
+      }
+    }
+    fetchMembers()
+    setShowInviteUsers(false)
+  }
+
   return (
     <div className="members-modal-overlay" onClick={onClose}>
       <div className="members-modal" onClick={(e) => e.stopPropagation()}>
@@ -63,8 +79,19 @@ const MembersList = ({ room, onClose, currentUser }) => {
             <div className="error">{error}</div>
           ) : (
             <div className="members-list">
-              <div className="members-count">
-                {members.length} {members.length === 1 ? 'member' : 'members'}
+              <div className="members-count-header">
+                <div className="members-count">
+                  {members.length} {members.length === 1 ? 'member' : 'members'}
+                </div>
+                {room?.isGroup && (
+                  <button 
+                    className="invite-btn" 
+                    onClick={() => setShowInviteUsers(true)}
+                    title="Invite users to this room"
+                  >
+                    +
+                  </button>
+                )}
               </div>
               
               {members.map((member) => (
@@ -104,6 +131,14 @@ const MembersList = ({ room, onClose, currentUser }) => {
           </div>
         )} */}
       </div>
+      
+      {showInviteUsers && (
+        <InviteUsers
+          room={room}
+          onClose={() => setShowInviteUsers(false)}
+          onInviteSuccess={handleInviteSuccess}
+        />
+      )}
     </div>
   )
 }

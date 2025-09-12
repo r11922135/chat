@@ -19,7 +19,6 @@ const ChatWindow = ({
   onRoomLeft,        // 新增：離開聊天室回調
 }) => {
   const [showMembersList, setShowMembersList] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
 
   if (!selectedRoom) {
     return (
@@ -46,20 +45,13 @@ const ChatWindow = ({
           <h3>{roomDisplayName}</h3>
         </div>
         <div className="header-actions">
-          <button 
-            className="members-btn"
-            onClick={() => setShowMembersList(true)}
-            title="View members"
-          >
-            👥 Members
-          </button>
           {selectedRoom.isGroup && (
             <button 
-              className="invite-btn"
-              onClick={() => setShowInviteModal(true)}
-              title="邀請用戶加入聊天室"
+              className="members-btn"
+              onClick={() => setShowMembersList(true)}
+              title="View members"
             >
-              Invite Users
+              👥 Members
             </button>
           )}
         </div>
@@ -194,16 +186,6 @@ const ChatWindow = ({
           currentUser={currentUser}
           onClose={() => setShowMembersList(false)}
           onLeaveRoom={onRoomLeft}
-        />
-      )}
-      
-      {showInviteModal && selectedRoom && (
-        <InviteUsers
-          room={selectedRoom}
-          onClose={() => setShowInviteModal(false)}
-          onInviteSuccess={() => {
-            setShowInviteModal(false)
-          }}
         />
       )}
     </div>

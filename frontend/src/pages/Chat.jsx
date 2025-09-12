@@ -17,22 +17,20 @@ const Chat = ({ onLogout, onAuthExpired }) => {
   const [showUserSearch, setShowUserSearch] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 650)
   const [showSidebar, setShowSidebar] = useState(true)
-  
-  // 新增：訊息緩存和無限滾動相關狀態
   const [messageCache, setMessageCache] = useState(new Map())
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
   
   const selectedRoomRef = useRef(selectedRoom)
   
-  const currentUser = localStorage.getItem('chatUsername')       // 用戶名
-  const token = localStorage.getItem('chatToken')                // 身份驗證 token
+  const currentUser = localStorage.getItem('chatUsername')
+  const token = localStorage.getItem('chatToken')
 
   useEffect(() => {
     selectedRoomRef.current = selectedRoom
   }, [selectedRoom])
   
-  // 【應用初始化】檢查身份驗證並初始化聊天環境
+  // 檢查身份驗證並初始化聊天環境
   // 這是整個聊天組件的入口點，負責建立聊天所需的基礎環境
   useEffect(() => {
     if (!token) {
@@ -40,7 +38,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       return
     }
     
-    // 🚀 直接在 useEffect 中處理，不需要額外函數
+    // 直接在 useEffect 中處理，不需要額外函數
     const initializeChat = async () => {
       try {
         setLoading(true)
@@ -50,7 +48,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
         setRooms(roomsData)
 
         // 2. 設定 Socket 連接成功後的回調
-        // 🆕 在 Socket 連接成功後註冊新聊天室監聽器
+        // 在 Socket 連接成功後註冊新聊天室監聽器
         socketService.setOnNewRoomCallback((data) => {
           console.log('被加入新聊天室:', data.room);
           // 將新聊天室加入列表
@@ -323,6 +321,7 @@ const Chat = ({ onLogout, onAuthExpired }) => {
       if (isMobile) {
         setShowSidebar(false)
       }
+      scrollToBottom()
     } catch (err) {
       console.error('Load messages error:', err)
       console.error('錯誤詳情:', err.response?.data || err.message)
@@ -350,14 +349,11 @@ const Chat = ({ onLogout, onAuthExpired }) => {
     setNewMessage('')
 
     try {
-      // 只需調用 API 發送訊息，後端會自動處理廣播
-      // API 負責：資料驗證、資料庫儲存、Socket廣播
       await chatService.sendMessage(selectedRoom.id, messageContent)
       console.log('訊息發送成功')
 
       // 送出訊息後自動滾動到底部
       setTimeout(scrollToBottom, 100)
-      
       setError('')
     } catch (err) {
       console.error('發送訊息失敗:', err)
