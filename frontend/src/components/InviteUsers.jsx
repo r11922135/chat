@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import chatService from '../services/chatService'
-import socketService from '../services/socketService'
 import './InviteUsers.css'
 
 const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
@@ -61,18 +60,13 @@ const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
     try {
       const userIds = selectedUsers.map(user => user.id)
       
-      // 🆕 步驟1：先呼叫 API 更新資料庫
       console.log('正在邀請用戶到資料庫...')
       const result = await chatService.inviteUsers(room.id, userIds)
-      
-      // 🆕 步驟2：再呼叫 Socket 讓在線用戶加入房間
-      /*console.log('正在讓被邀請的用戶加入 Socket 房間...')
-      socketService.inviteUsersToRoom(room.id, userIds)*/
       
       alert(`成功邀請 ${result.invitedCount} 位用戶！`)
       
       if (onInviteSuccess) {
-        onInviteSuccess(result.room)
+        onInviteSuccess()
       }
       
       if (onClose) {
@@ -91,8 +85,8 @@ const InviteUsers = ({ room, onClose, onInviteSuccess }) => {
   }
 
   return (
-    <div className="invite-modal-overlay">
-      <div className="invite-modal">
+    <div className="invite-modal-overlay" onClick={(e) => e.stopPropagation()}>
+      <div className="invite-modal" onClick={(e) => e.stopPropagation()}>
         <div className="invite-modal-header">
           <h3>邀請用戶到 "{room.name}"</h3>
           <button onClick={onClose} className="close-btn">&times;</button>

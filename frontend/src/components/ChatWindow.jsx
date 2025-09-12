@@ -1,5 +1,7 @@
-import { useRef, useEffect } from 'react'
+import { useState } from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
+import MembersList from './MembersList'
+import InviteUsers from './InviteUsers'
 import './ChatWindow.css'
 
 const ChatWindow = ({ 
@@ -8,14 +10,15 @@ const ChatWindow = ({
   newMessage, 
   onSendMessage, 
   onMessageChange,
-  onShowInviteModal,
   onBackToSidebar,
   currentUser,
   isMobile,
   onLoadMore,        // 新增：載入更多訊息的函數
   hasMoreMessages,   // 新增：是否還有更多訊息
-  loadingMessages    // 新增：載入狀態
+  loadingMessages,   // 新增：載入狀態
+  onRoomLeft,        // 新增：離開聊天室回調
 }) => {
+  const [showMembersList, setShowMembersList] = useState(false)
 
   if (!selectedRoom) {
     return (
@@ -30,7 +33,7 @@ const ChatWindow = ({
 
   const roomDisplayName = selectedRoom.isGroup 
     ? (selectedRoom.name || 'Unnamed Group')
-    : (selectedRoom.members?.find(member => member.username !== currentUser)?.username || selectedRoom.name || 'Direct Message')
+    : (selectedRoom.name || 'Direct Message')
 
   return (
     <div className={`chat-window ${isMobile ? 'mobile' : ''}`}>
@@ -44,11 +47,11 @@ const ChatWindow = ({
         <div className="header-actions">
           {selectedRoom.isGroup && (
             <button 
-              className="invite-btn"
-              onClick={onShowInviteModal}
-              title="邀請用戶加入聊天室"
+              className="members-btn"
+              onClick={() => setShowMembersList(true)}
+              title="View members"
             >
-              Invite Users
+              👥 Members
             </button>
           )}
         </div>
@@ -100,21 +103,41 @@ const ChatWindow = ({
                 const nextMessageDate = nextMessage ? new Date(nextMessage.createdAt).toDateString() : null;
 
                 // 先添加訊息
-                elements.push(
-                  <div
-                    key={message.id}
-                    className={`message ${message.User.username === currentUser ? 'own-message' : 'other-message'}`}
-                    style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }}
-                  >
-                    <div className="message-header">
-                      <span className="message-sender">{message.User.username}</span>
-                      <span className="message-time">
-                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                if (message.type === 'system') {
+                  // 系統訊息樣式
+                  elements.push(
+                    <div
+                      key={message.id}
+                      className="system-message"
+                      style={{ 
+                        textAlign: 'center', 
+                        margin: '4px 0', 
+                        fontSize: '11px', 
+                        color: '#888',
+                        padding: '0'
+                      }}
+                    >
+                      {message.content} {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
-                    <div className="message-content">{message.content}</div>
-                  </div>
-                );
+                  );
+                } else {
+                  // 一般用戶訊息
+                  elements.push(
+                    <div
+                      key={message.id}
+                      className={`message ${message.User?.username === currentUser ? 'own-message' : 'other-message'}`}
+                      style={{ marginBottom: '16px', padding: '8px 12px', borderRadius: '8px' }}
+                    >
+                      <div className="message-header">
+                        <span className="message-sender">{message.User?.username || 'Unknown'}</span>
+                        <span className="message-time">
+                          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="message-content">{message.content}</div>
+                    </div>
+                  );
+                }
 
                 // 在這個訊息後面顯示日期分隔符的條件：
                 // 1. 這是最後一個訊息（最舊的）
@@ -156,6 +179,15 @@ const ChatWindow = ({
         />
         <button type="submit" className="send-btn">Send</button>
       </form>
+
+      {showMembersList && (
+        <MembersList
+          room={selectedRoom}
+          currentUser={currentUser}
+          onClose={() => setShowMembersList(false)}
+          onLeaveRoom={onRoomLeft}
+        />
+      )}
     </div>
   )
 }

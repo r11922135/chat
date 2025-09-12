@@ -17,7 +17,7 @@ const startServer = async () => {
     logger.info('開始連接資料庫...')
     await sequelize.authenticate()
     logger.info('資料庫連接成功！')
-    await sequelize.sync()
+    await sequelize.sync({ alter: true })
     logger.info('PostgreSQL synced!')
     server.listen(config.PORT, () => {
       logger.info(`Server is running on port ${config.PORT}`)
