@@ -16,6 +16,9 @@ const Register = ({ navigateTo }) => {
       setMessage('Registration successful!')
       setUsername('')
       setPassword('')
+      setTimeout(() => {
+        navigateTo('login')
+      }, 1000)
     } catch (error) {
       if (error.response && error.response.data && error.response.data.message) {
         setMessage(error.response.data.message)
