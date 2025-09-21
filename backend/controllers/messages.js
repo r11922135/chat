@@ -6,6 +6,7 @@ const Message = require('../models/Message')
 const Room = require('../models/Room')
 const { authenticateToken, checkRoomAccess } = require('../utils/middleware')
 const { getIO } = require('../socket/socketHandlers')
+const { cacheMessage, getLatestMessages, getOlderMessages, backfillCache } = require('../utils/messageCache')
 
 const router = express.Router()
 
@@ -14,23 +15,117 @@ router.get('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => {
   const { roomId } = req.params
   const { before } = req.query // 只保留 before 參數
   const limit = 15 // 固定每次取 15 則訊息
+  const start = Date.now()
 
-  // 構建查詢條件
-  const whereClause = { roomId }
+  let messages = []
+
+  try {
+    if (before) {
+      // Lazy loading - get older messages before a specific ID
+      let beforeId = parseInt(before)
+
+      // Try Redis first
+      messages = await getOlderMessages(roomId, beforeId, limit)
+
+      if (messages.length < limit) {
+        // Cache miss - fall back to DB
+        logger.info(`Cache miss for older messages in room ${roomId} before ${beforeId}, using DB`)
+
+        if (messages.length > 0) {
+          // 已經從快取拿到一些訊息，記錄最後一筆的 ID
+          const lastCachedId = messages[messages.length - 1].id
+          // 從資料庫撈比 lastCachedId 更舊的訊息
+          beforeId = Math.min(beforeId, lastCachedId)
+        }
+        let oldMessages = await Message.findAll({
+          where: {
+            roomId,
+            id: { [sequelize.Sequelize.Op.lt]: beforeId }
+          },
+          include: [{ model: User, attributes: ['id', 'username'] }],
+          order: [['id', 'DESC']],
+          limit: limit * 15 // 多取一些以便回填
+        })
+
+        // Backfill cache with fetched messages
+        if (oldMessages.length > 0) {
+          await backfillCache(roomId, oldMessages)
+        }
+        messages = messages.concat(oldMessages).slice(0, limit) // 只取前 15 筆回傳
+      }
+    } else {
+      // Initial load - get latest messages
+
+      // Try Redis first
+      messages = await getLatestMessages(roomId, limit)
+
+      if (messages.length === 0) {
+        // Cache miss or empty cache - fall back to DB
+        logger.info(`Cache miss for latest messages in room ${roomId}, using DB`)
+
+        messages = await Message.findAll({
+          where: { roomId },
+          include: [{ model: User, attributes: ['id', 'username'] }],
+          order: [['id', 'DESC']],
+          limit: limit * 15 // 多取一些以便回填
+        })
+
+        // Backfill cache with fetched messages
+        if (messages.length > 0) {
+          await backfillCache(roomId, messages)
+        }
+        messages = messages.slice(0, limit) // 只取前 15 筆回傳
+      }
+    }
+    const duration = Date.now() - start
+    logger.info(`Fetch messages for room ${roomId} took ${duration}ms`)
+
+    res.json({
+      messages: messages, // 直接回傳，不要 reverse
+      hasMore: messages.length === limit // 如果取滿 15 則，表示還有更多
+    })
+
+  } catch (error) {
+    logger.error(`Error fetching messages for room ${roomId}:`, error.message)
+    res.status(500).json({ message: 'Failed to fetch messages' })
+  }
+})
+
+router.get('/:roomId/no-cache', authenticateToken, checkRoomAccess, async (req, res) => {
+  const { roomId } = req.params
+  const { before } = req.query
+  const limit = 15
+  const start = Date.now()
+  let messages = []
   if (before) {
-    whereClause.id = { [sequelize.Sequelize.Op.lt]: parseInt(before) }
+    // Lazy loading - get older messages before a specific ID
+    const beforeId = parseInt(before)
+
+    messages = await Message.findAll({
+      where: {
+        roomId,
+        id: { [sequelize.Sequelize.Op.lt]: beforeId }
+      },
+      include: [{ model: User, attributes: ['id', 'username'] }],
+      order: [['id', 'DESC']],
+      limit: limit
+    })
+  } else {
+    // Initial load - get latest messages
+    messages = await Message.findAll({
+      where: { roomId },
+      include: [{ model: User, attributes: ['id', 'username'] }],
+      order: [['id', 'DESC']],
+      limit: limit
+    })
   }
 
-  const messages = await Message.findAll({
-    where: whereClause,
-    include: [{ model: User, attributes: ['id', 'username'] }],
-    order: [['id', 'DESC']], // 按 id 降序，直接回傳由新到舊的順序
-    limit: limit
-  })
+  const duration = Date.now() - start
+  logger.info(`Fetch messages for room ${roomId} (NO CACHE) took ${duration}ms`)
 
   res.json({
-    messages: messages, // 直接回傳，不要 reverse
-    hasMore: messages.length === limit // 如果取滿 15 則，表示還有更多
+    messages: messages,
+    hasMore: messages.length === limit
   })
 })
 
@@ -69,6 +164,9 @@ router.post('/:roomId', authenticateToken, checkRoomAccess, async (req, res) => 
       { model: Room, attributes: ['id', 'name'] }
     ]
   })
+
+  // Cache the new message in Redis (non-blocking)
+  await cacheMessage(messageWithUser)
 
   // 使用 Socket.IO 廣播訊息給聊天室所有成員（包括發送者）
   const io = getIO()
