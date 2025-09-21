@@ -11,6 +11,8 @@ const DB_USER = process.env.DB_USER
 const DB_PASS = process.env.DB_PASS
 const JWT_SECRET = process.env.JWT_SECRET
 const NODE_ENV = process.env.NODE_ENV
+const REDIS_URL = process.env.REDIS_URL
+const REDIS_PASSWORD = process.env.REDIS_PASSWORD
 
 module.exports = {
   PORT,
@@ -20,5 +22,7 @@ module.exports = {
   DB_USER,
   DB_PASS,
   JWT_SECRET,
-  NODE_ENV
+  NODE_ENV,
+  REDIS_URL,
+  REDIS_PASSWORD
 }
